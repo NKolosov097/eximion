@@ -1,11 +1,48 @@
-name: verify
+﻿name: verify
 on:
   push:
   pull_request:
 permissions:
   contents: read
 jobs:
-  verify:
+  typechecks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.4'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: uv sync --project backend --frozen
+      - run: uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run typecheck
+        working-directory: frontend
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.4'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: uv sync --project backend --frozen
+      - run: uv run --project backend python -m pytest backend/tests -m "not integration"
+      - run: uv run --project backend python -m unittest discover -s scripts -p "test_*.py"
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+  integration-tests:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -19,8 +56,17 @@ jobs:
           --health-cmd "pg_isready -U eximion -d eximion_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      TEST_DATABASE_URL: postgresql+psycopg://eximion:ci-only-password@localhost:5432/eximion_test
-      DATABASE_URL: postgresql+psycopg://eximion:ci-only-password@localhost:5432/eximion_test
+      TEST_DATABASE_URL: postgresql+psycopg://eximion:ci-only-password@127.0.0.1:5432/eximion_test
+      DATABASE_URL: postgresql+psycopg://eximion:ci-only-password@127.0.0.1:5432/eximion_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.4'
+      - run: uv sync --project backend --frozen
+      - run: uv run --project backend python -m pytest backend/tests -m integration
+  api-contract:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -29,18 +75,24 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24.19.0'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
       - run: uv sync --project backend --frozen
       - run: npm ci
         working-directory: frontend
-      - run: uv run --project backend python -m unittest discover -s scripts -p "test_*.py"
-      - run: uv run --project backend python -m pytest backend/tests
       - run: uv run --project backend python scripts/generate-contract.py
       - run: git diff --exit-code -- docs/openapi.json frontend/src/lib/api.generated.ts
-      - run: npm run typecheck && npm test && npm run build
-        working-directory: frontend
+  builds:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - run: docker compose config --quiet
       - run: docker build -t eximion-backend backend
       - run: docker build -t eximion-frontend --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 frontend
-
+  verify:
+    if: always()
+    needs: [typechecks, unit-tests, integration-tests, api-contract, builds]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every check to succeed
+        env:
+          RESULTS: ${{ join(needs.*.result, ',') }}
+        run: test "$RESULTS" = "success,success,success,success,success"

@@ -15,7 +15,7 @@ from app import database
 def postgres(monkeypatch):
     url = os.environ.get("TEST_DATABASE_URL")
     if not url:
-        pytest.skip("TEST_DATABASE_URL is required for real PostgreSQL integration tests.")
+        pytest.fail("TEST_DATABASE_URL is required for real PostgreSQL integration tests.")
     parsed = make_url(url)
     if parsed.get_backend_name() != "postgresql" or not parsed.database or not parsed.database.endswith("_test"):
         pytest.fail("TEST_DATABASE_URL must point to a dedicated PostgreSQL database ending in _test.")
@@ -35,3 +35,11 @@ def postgres(monkeypatch):
         with admin.begin() as connection:
             connection.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
         admin.dispose()
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(items):
+    # fixturenames includes transitive dependencies, so wrappers cannot hide PostgreSQL use.
+    for item in items:
+        marker = "integration" if "postgres" in item.fixturenames else "unit"
+        item.add_marker(getattr(pytest.mark, marker))

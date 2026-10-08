@@ -1,6 +1,6 @@
 import os
 import secrets
-from typing import Annotated
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, Request, Response
@@ -30,8 +30,8 @@ app.add_middleware(
 )
 app.add_middleware(TelemetryMiddleware, cors_origins=CORS_ORIGINS)
 SessionDependency = Annotated[Session, Depends(get_session)]
-DATABASE_ERRORS = {503: {"model": ErrorResponse}}
-CASE_ERRORS = {404: {"model": ErrorResponse}, **DATABASE_ERRORS}
+DATABASE_ERRORS: dict[int | str, dict[str, Any]] = {503: {"model": ErrorResponse}}
+CASE_ERRORS: dict[int | str, dict[str, Any]] = {404: {"model": ErrorResponse}, **DATABASE_ERRORS}
 
 
 class APIError(Exception):
@@ -54,7 +54,7 @@ async def database_error_handler(request: Request, exc: SQLAlchemyError):
 
 
 @app.exception_handler(RequestValidationError)
-@traced("request.validate")
+@traced("request.validate", status=422)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
     set_request_error(exc)
     # Validation must never echo clinical text, credentials, or unknown request fields.
@@ -124,17 +124,18 @@ def get_clinical_case(id: UUID, session: SessionDependency):
 def create_attempt(id: UUID, data: AttemptCreate, session: SessionDependency):
     record = find_case(id, session)
     is_correct = grade(record, data.diagnosis)
-    attempt = ClinicalCaseAttempt(clinical_case_id=id, diagnosis=data.diagnosis, score=100 if is_correct else 0, is_correct=is_correct)
+    score: Literal[0, 100] = 100 if is_correct else 0
+    attempt = ClinicalCaseAttempt(clinical_case_id=id, diagnosis=data.diagnosis, score=score, is_correct=is_correct)
     session.add(attempt)
     commit(session)
     return AttemptResult(
-        id=attempt.id, clinical_case_id=id, score=attempt.score, max_score=100, is_correct=is_correct,
+        id=attempt.id, clinical_case_id=id, score=score, max_score=100, is_correct=is_correct,
         feedback="Your diagnosis matches an accepted answer." if is_correct else "Your diagnosis does not match an accepted answer.",
         created_at=attempt.created_at,
     )
 
 
 @traced("diagnosis.grade")
-def grade(record, diagnosis):
+def grade(record: ClinicalCaseRecord, diagnosis: str) -> bool:
     accepted = {record.normalized_reference_diagnosis, *(answer.normalized_answer for answer in record.accepted_answers)}
     return normalize_diagnosis(diagnosis) in accepted

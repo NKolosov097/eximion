@@ -358,6 +358,7 @@
             "type": "string",
             "maxLength": 200,
             "minLength": 1,
+            "pattern": "^[^\\x00]*$",
             "title": "Diagnosis"
           }
         },
@@ -425,19 +426,22 @@
             "type": "string",
             "maxLength": 120,
             "minLength": 1,
+            "pattern": "^[^\\x00]*$",
             "title": "Title"
           },
           "vignette": {
             "type": "string",
             "maxLength": 8000,
             "minLength": 1,
+            "pattern": "^[^\\x00]*$",
             "title": "Vignette"
           },
           "symptoms": {
             "items": {
               "type": "string",
               "maxLength": 200,
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$"
             },
             "type": "array",
             "maxItems": 20,
@@ -486,19 +490,22 @@
             "type": "string",
             "maxLength": 120,
             "minLength": 1,
+            "pattern": "^[^\\x00]*$",
             "title": "Title"
           },
           "vignette": {
             "type": "string",
             "maxLength": 8000,
             "minLength": 1,
+            "pattern": "^[^\\x00]*$",
             "title": "Vignette"
           },
           "symptoms": {
             "items": {
               "type": "string",
               "maxLength": 200,
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$"
             },
             "type": "array",
             "maxItems": 20,
@@ -522,13 +529,15 @@
             "type": "string",
             "maxLength": 200,
             "minLength": 1,
+            "pattern": "^[^\\x00]*$",
             "title": "Reference Diagnosis"
           },
           "accepted_answers": {
             "items": {
               "type": "string",
               "maxLength": 200,
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$"
             },
             "type": "array",
             "maxItems": 20,
@@ -551,19 +560,22 @@
             "type": "string",
             "maxLength": 120,
             "minLength": 1,
+            "pattern": "^[^\\x00]*$",
             "title": "Title"
           },
           "vignette": {
             "type": "string",
             "maxLength": 8000,
             "minLength": 1,
+            "pattern": "^[^\\x00]*$",
             "title": "Vignette"
           },
           "symptoms": {
             "items": {
               "type": "string",
               "maxLength": 200,
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$"
             },
             "type": "array",
             "maxItems": 20,

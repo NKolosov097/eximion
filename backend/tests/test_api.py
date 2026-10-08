@@ -118,3 +118,27 @@ def test_database_constraints_reject_invalid_scores(postgres):
             connection.execute(text("INSERT INTO clinical_case_attempts (id, clinical_case_id, diagnosis, score, is_correct, created_at) VALUES (:id, :case_id, 'Flu', 50, true, now())"), {"id": uuid4(), "case_id": uuid4()})
         assert error.value.orig.sqlstate == "23514"
         assert error.value.orig.diag.constraint_name in {"ck_attempt_score", "ck_attempt_consistency"}
+
+
+@pytest.mark.parametrize("field,value", [
+    ("title", "bad\x00title"),
+    ("vignette", "bad\x00vignette"),
+    ("symptoms", ["bad\x00symptom"]),
+    ("reference_diagnosis", "bad\x00reference"),
+    ("accepted_answers", ["bad\x00answer"]),
+])
+def test_persisted_case_text_rejects_nul_before_sql(postgres, client, field, value):
+    engine, _ = postgres
+    response = client.post("/api/v1/clinical-cases", json=VALID_CASE | {field: value})
+    assert response.status_code == 422
+    with Session(engine) as session:
+        assert session.scalar(select(func.count()).select_from(ClinicalCaseRecord)) == 0
+
+
+def test_attempt_rejects_nul_without_persisting(postgres, client):
+    engine, _ = postgres
+    case = client.post("/api/v1/clinical-cases", json=VALID_CASE).json()
+    response = client.post(f"/api/v1/clinical-cases/{case['id']}/attempts", json={"diagnosis": "Flu\x00"})
+    assert response.status_code == 422
+    with Session(engine) as session:
+        assert session.scalar(select(func.count()).select_from(ClinicalCaseAttempt)) == 0

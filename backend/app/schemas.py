@@ -7,9 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_vali
 from app.telemetry import operation
 
 
-Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
-Vignette = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=8000)]
-ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120, pattern=r"^[^\x00]*$")]
+Vignette = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=8000, pattern=r"^[^\x00]*$")]
+ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200, pattern=r"^[^\x00]*$")]
 
 
 class RequestModel(BaseModel):
@@ -19,7 +19,7 @@ class RequestModel(BaseModel):
     @classmethod
     def trace_validation(cls, data, handler):
         if cls.__name__ in {"ClinicalCaseCreate", "ExtractionRequest", "AttemptCreate"}:
-            with operation("request.validate"):
+            with operation("request.validate", validation_error_status=422):
                 return handler(data)
         return handler(data)
 

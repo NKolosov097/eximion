@@ -20,8 +20,19 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest==9.1.1",
+    "mypy==1.19.1",
+    "types-grpcio==1.84.0.20260928",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+addopts = "--strict-markers"
+markers = ["unit: does not require PostgreSQL", "integration: requires a dedicated PostgreSQL test database"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["app"]
+check_untyped_defs = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]

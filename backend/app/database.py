@@ -1,5 +1,6 @@
 import os
 from functools import lru_cache
+from collections.abc import Iterator
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
@@ -32,7 +33,7 @@ def query_failed(context):
 
 
 @traced("db.transaction")
-def commit(session):
+def commit(session: Session) -> None:
     session.commit()
 
 
@@ -41,7 +42,7 @@ class Base(DeclarativeBase):
 
 
 @lru_cache
-def get_engine():
+def get_engine() -> Engine:
     url = os.environ.get("DATABASE_URL", "postgresql+psycopg://eximion:eximion@localhost:5432/eximion")
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+psycopg://", 1)
@@ -56,7 +57,7 @@ def get_engine():
     )
 
 
-def get_session():
+def get_session() -> Iterator[Session]:
     with Session(get_engine(), expire_on_commit=False) as session:
         try:
             yield session
