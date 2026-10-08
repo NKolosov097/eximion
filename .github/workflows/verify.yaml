@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   typechecks:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
@@ -25,7 +25,7 @@ jobs:
       - run: npm run typecheck
         working-directory: frontend
   unit-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
@@ -44,7 +44,7 @@ jobs:
       - run: npm test
         working-directory: frontend
   integration-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:17.6-alpine
@@ -68,7 +68,7 @@ jobs:
       - run: uv sync --project backend --frozen
       - run: uv run --project backend python -m pytest backend/tests -m integration
   api-contract:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
@@ -84,7 +84,7 @@ jobs:
       - run: uv run --project backend python scripts/generate-contract.py
       - run: git diff --exit-code -- docs/openapi.json frontend/src/lib/api.generated.ts
   builds:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - run: docker compose config --quiet
@@ -93,7 +93,7 @@ jobs:
   verify:
     if: always()
     needs: [typechecks, unit-tests, integration-tests, api-contract, builds]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Require every check to succeed
         env:
