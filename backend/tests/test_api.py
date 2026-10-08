@@ -1,0 +1,120 @@
+from uuid import UUID, uuid4
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.orm import Session
+
+from app import llm
+from app.database import get_session
+from app.main import app
+from app.models import ClinicalCaseAcceptedAnswer, ClinicalCaseAttempt, ClinicalCaseRecord, ClinicalCaseSymptom
+from app.schemas import ClinicalCaseDraft
+from test_cases import VALID_CASE
+
+
+@pytest.fixture
+def client(monkeypatch):
+    monkeypatch.delenv("AUTHOR_API_KEY", raising=False)
+    with TestClient(app) as client:
+        yield client
+
+
+def test_create_read_grade_and_persist_across_connections(postgres, client):
+    engine, _ = postgres
+    response = client.post("/api/v1/clinical-cases", json=VALID_CASE)
+    assert response.status_code == 201, response.text
+    case = response.json()
+    assert set(case) == {"id", "title", "vignette", "symptoms", "age_years", "created_at"}
+    assert response.headers["location"] == f"/api/v1/clinical-cases/{case['id']}"
+    assert case["symptoms"] == ["Fever", "Cough"]
+    assert case["created_at"].endswith(("Z", "+00:00"))
+    engine.dispose()
+    assert client.get(response.headers["location"]).json() == case
+    for diagnosis, score in [(" ＦＬＵ ", 100), ("INFLUENZA", 100), ("Influenza.", 0), ("Cold", 0)]:
+        attempt = client.post(f"/api/v1/clinical-cases/{case['id']}/attempts", json={"diagnosis": diagnosis})
+        assert attempt.status_code == 201, attempt.text
+        assert attempt.json()["score"] == score
+        assert attempt.json()["max_score"] == 100
+        assert attempt.json()["is_correct"] == (score == 100)
+        assert "reference" not in attempt.text.lower()
+    with Session(engine) as session:
+        record = session.get(ClinicalCaseRecord, UUID(case["id"]))
+        assert record.reference_diagnosis == "Influenza"
+        assert len(record.accepted_answers) == 1
+        assert session.scalar(select(func.count()).select_from(ClinicalCaseSymptom)) == 2
+        attempts = session.scalars(select(ClinicalCaseAttempt)).all()
+        assert len(attempts) == 4
+        assert attempts[0].diagnosis == "ＦＬＵ"
+    assert client.get("/ready").json() == {"status": "ok"}
+
+
+def test_missing_case_and_malformed_ids(postgres, client):
+    path = f"/api/v1/clinical-cases/{uuid4()}"
+    for response in [client.get(path), client.post(f"{path}/attempts", json={"diagnosis": "Flu"})]:
+        assert response.status_code == 404
+        assert response.json() == {"error": {"code": "case_not_found", "message": "Clinical case not found."}}
+    assert client.get("/api/v1/clinical-cases/not-a-uuid").status_code == 422
+
+
+def test_author_key_guards_writes_and_never_echoes_input(client, monkeypatch):
+    monkeypatch.setenv("AUTHOR_API_KEY", "test-author-key")
+    for path, body in [("/api/v1/clinical-cases", VALID_CASE), ("/api/v1/clinical-cases/extract", {"source_text": "Synthetic clinical source text."})]:
+        for headers in [{}, {"X-Author-Key": "wrong"}, {b"X-Author-Key": b"\xc3\xa9"}]:
+            response = client.post(path, json=body, headers=headers)
+            assert response.status_code == 401
+            assert "test-author-key" not in response.text
+    assert client.get("/health").status_code == 200
+    response = client.post("/api/v1/clinical-cases", json=VALID_CASE | {"private_source": "DO_NOT_ECHO"}, headers={"X-Author-Key": "test-author-key"})
+    assert response.status_code == 422
+    assert "DO_NOT_ECHO" not in response.text
+
+
+def test_extraction_success_requires_review(client, monkeypatch):
+    async def extract(source_text):
+        assert source_text == "Synthetic clinical source text."
+        return ClinicalCaseDraft(title="Fever", vignette="Synthetic fever.", symptoms=["Fever"])
+    monkeypatch.setattr(llm, "extract_case", extract)
+    response = client.post("/api/v1/clinical-cases/extract", json={"source_text": " Synthetic clinical source text. "})
+    assert response.status_code == 200
+    assert response.json()["draft"]["age_years"] is None
+    assert response.json()["warnings"] == ["Review the draft for accuracy and remove any revealed diagnosis before saving."]
+
+
+@pytest.mark.parametrize("exception,status,code", [
+    (llm.ExtractionFailed, 502, "extraction_failed"),
+    (llm.ExtractionUnavailable, 503, "extraction_unavailable"),
+    (llm.ExtractionTimeout, 504, "extraction_timeout"),
+])
+def test_extraction_errors_are_sanitized(client, monkeypatch, exception, status, code):
+    async def extract(source_text):
+        raise exception("SECRET_PROVIDER_DETAILS")
+    monkeypatch.setattr(llm, "extract_case", extract)
+    response = client.post("/api/v1/clinical-cases/extract", json={"source_text": "Synthetic clinical source text."})
+    assert response.status_code == status
+    assert response.json()["error"]["code"] == code
+    assert "SECRET_PROVIDER_DETAILS" not in response.text
+
+
+def test_database_error_is_sanitized(client):
+    def unavailable():
+        raise OperationalError("SECRET_SQL", {}, Exception("SECRET_DATABASE"))
+        yield
+    app.dependency_overrides[get_session] = unavailable
+    try:
+        response = client.get("/ready")
+        assert response.status_code == 503
+        assert response.json()["error"]["code"] == "database_unavailable"
+        assert "SECRET" not in response.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_database_constraints_reject_invalid_scores(postgres):
+    engine, _ = postgres
+    with engine.connect() as connection:
+        with pytest.raises(IntegrityError) as error:
+            connection.execute(text("INSERT INTO clinical_case_attempts (id, clinical_case_id, diagnosis, score, is_correct, created_at) VALUES (:id, :case_id, 'Flu', 50, true, now())"), {"id": uuid4(), "case_id": uuid4()})
+        assert error.value.orig.sqlstate == "23514"
+        assert error.value.orig.diag.constraint_name in {"ck_attempt_score", "ck_attempt_consistency"}

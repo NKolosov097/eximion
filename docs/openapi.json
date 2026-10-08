@@ -391,8 +391,7 @@
           "max_score": {
             "type": "integer",
             "const": 100,
-            "title": "Max Score",
-            "default": 100
+            "title": "Max Score"
           },
           "is_correct": {
             "type": "boolean",
@@ -413,6 +412,7 @@
           "id",
           "clinical_case_id",
           "score",
+          "max_score",
           "is_correct",
           "feedback",
           "created_at"
@@ -474,6 +474,7 @@
           "title",
           "vignette",
           "symptoms",
+          "age_years",
           "id",
           "created_at"
         ],

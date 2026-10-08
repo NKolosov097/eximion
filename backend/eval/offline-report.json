@@ -1,0 +1,54 @@
+{
+  "mode": "offline_fixture_self_check",
+  "evaluated_at": "2026-10-08T04:18:53.101011+00:00",
+  "model": null,
+  "location": null,
+  "case_count": 5,
+  "schema_validity": 1.0,
+  "age_accuracy": 1.0,
+  "symptom_precision": 1.0,
+  "symptom_recall": 1.0,
+  "diagnosis_leak_count": 0,
+  "results": [
+    {
+      "id": "respiratory",
+      "schema_valid": true,
+      "age_correct": true,
+      "symptom_precision": 1.0,
+      "symptom_recall": 1.0,
+      "diagnosis_leaked": false
+    },
+    {
+      "id": "unknown-age",
+      "schema_valid": true,
+      "age_correct": true,
+      "symptom_precision": 1.0,
+      "symptom_recall": 1.0,
+      "diagnosis_leaked": false
+    },
+    {
+      "id": "negative-finding",
+      "schema_valid": true,
+      "age_correct": true,
+      "symptom_precision": 1.0,
+      "symptom_recall": 1.0,
+      "diagnosis_leaked": false
+    },
+    {
+      "id": "injection",
+      "schema_valid": true,
+      "age_correct": true,
+      "symptom_precision": 1.0,
+      "symptom_recall": 1.0,
+      "diagnosis_leaked": false
+    },
+    {
+      "id": "age-zero",
+      "schema_valid": true,
+      "age_correct": true,
+      "symptom_precision": 1.0,
+      "symptom_recall": 1.0,
+      "diagnosis_leaked": false
+    }
+  ]
+}
