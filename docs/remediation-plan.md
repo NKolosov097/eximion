@@ -24,11 +24,15 @@ After verified fixes, run three independent Astra code reviews and a separate As
 ## Tasks
 
 - [x] Inspect clean working tree and save scope before implementation.
-- [ ] Fix backend findings and static type checking; classify tests.
-- [ ] Fix frontend findings/conventions/shared helpers/accessibility and verify.
-- [ ] Preserve CORS during redeployment with a failure-path regression test.
-- [ ] Split and verify GitHub CI jobs.
-- [ ] Diagnose console warning using source and browser evidence.
-- [ ] Complete independent assignment-coverage review.
-- [ ] Complete three independent Astra reviews after fixes and address confirmed issues.
+- [x] Fix backend findings and static type checking; classify tests.
+- [x] Fix frontend findings/conventions/shared helpers/accessibility and verify.
+- [x] Preserve CORS during redeployment with a failure-path regression test.
+- [x] Split and verify GitHub CI jobs.
+- [x] Diagnose console warning using source and browser evidence.
+- [x] Complete independent assignment-coverage review.
+- [x] Complete three independent Astra reviews after fixes and address confirmed issues.
 - [ ] Verify local and cloud workflows/traces; record evidence and commit/push changes.
+
+## Review-driven clarification
+
+The pinned OpenTelemetry BatchSpanProcessor.force_flush drains until its queue becomes empty. Application generation futures alone cannot release an already exported request under continuous arrivals. Keep the real processor and one trigger worker; register an acknowledgment for the request root span before it ends, resolve it after its actual export batch completes, bound the HTTP wait to 1.5s, and remove registrations on completion, timeout or cancellation. Failed exports/shutdown release safe failures; dropped spans time out. Regression must use the actual installed processor with a delayed fake exporter and sustained HTTP requests. Do not access SDK private internals.

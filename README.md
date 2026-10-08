@@ -8,6 +8,10 @@ Open https://eximion-frontend-497115726994.europe-west3.run.app . API documentat
 
 Both applications and PostgreSQL run in Frankfurt. Gemini uses the EU endpoint. Real extraction, browser authoring, scoring, persistence and mobile layout have been verified; see [deployment metadata](docs/deployment.json) and [verification record](docs/progress.md).
 
+## Assignment assumptions
+
+The supplied assignment asks for a saved clinical case, answer scoring, server rendering and structured LLM extraction. The educational author/learner workflow is our interpretation. We chose one diagnosis per case, an independently entered reference with accepted variants, and deterministic exact-match scoring (0/100). No external JSON schema or scoring rubric was supplied. The author is whoever prepares and reviews the synthetic case; Influenza is the demo reference, not an LLM-generated answer. See [assignment coverage](docs/assignment-coverage.md).
+
 ## Run locally
 
 Requirements: Docker Compose. For tests and contract generation also install uv and Node 24.
@@ -40,6 +44,8 @@ Demo case: `/clinical-cases/4613eeb7-7064-41da-bb06-62630b3eaebc`. Synthetic ref
 uv sync --project backend --frozen
 npm ci --prefix frontend
 uv run --project backend python scripts/generate-contract.py
+uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+uv run --project backend python -m pytest backend/tests -m "not integration"
 # Set TEST_DATABASE_URL to a dedicated PostgreSQL test database first.
 uv run --project backend python -m pytest backend/tests
 npm run typecheck --prefix frontend
@@ -48,7 +54,7 @@ npm run build --prefix frontend
 uv run --project backend python scripts/smoke.py http://localhost:8000
 ```
 
-One command regenerates both `docs/openapi.json` and `frontend/src/lib/api.generated.ts`. CI repeats it and rejects drift. Do not manually edit API DTO types. Backend tests use real PostgreSQL and must not target application data.
+One command regenerates both `docs/openapi.json` and `frontend/src/lib/api.generated.ts`. CI repeats it and rejects drift. Do not manually edit API DTO types. Integration tests use real PostgreSQL and must not target application data; selecting them without TEST_DATABASE_URL fails. Unit tests do not need a database. CI has separate typechecks, unit-tests, integration-tests, api-contract and builds jobs, with an aggregate verify gate.
 
 ## Structure
 

@@ -54,7 +54,7 @@ The draft fields and save form appear after successful extraction. Existing draf
 | `case-loading` | Route loading status |
 | `case-load-error` | Failed case-load container |
 | `case-load-error-message` | Failed case-load alert |
-| `case-load-retry` | Retry button, invokes the route error boundary reset |
+| `case-load-retry` | Retry button, reloads the page and fetches the case again on the server |
 | `case-not-found` | Not-found route container |
 | `case-not-found-home` | Not-found link back to `/` |
 
@@ -86,3 +86,5 @@ node scripts/browser-smoke.cjs
 ```
 
 The script reads deployment URLs and the private `.local/cloud-secrets.json` author key, exercises real extraction/review/save/attempts using stable selectors, checks mobile overflow, and saves `docs/cloud-browser-check.json`. It never prints the key. It creates a synthetic case in the deployed database. Optional `FRONTEND_CHECK_URL` selects the other frontend URL alias.
+
+For isolated frontend regression checks, first build with `npm run build --prefix frontend`, then run `node scripts/check-frontend.cjs`. It starts temporary random-port servers, uses a synthetic mock API, and checks Retry, keyboard focus, Unicode limits, reduced motion and responsive overflow. Results are saved to `.local/frontend-check.json`; this does not replace the real cloud smoke test.

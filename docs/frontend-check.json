@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "production_retry_new_api_request": true,
+  "keyboard_skip_and_submit": true,
+  "unicode_boundaries": true,
+  "inline_errors_and_focus": true,
+  "reduced_motion": true,
+  "responsive_widths": [
+    320,
+    390,
+    768,
+    1440
+  ],
+  "page_errors": [],
+  "synthetic_mock_api": true
+}

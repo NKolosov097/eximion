@@ -129,3 +129,19 @@ User requested stable E2E selectors and tracing/logging across backend layers. S
 - Cloud401/422/404 probes: expected status, supplied W3C trace ID preserved, public frontend CORS readable. Report docs/cloud-error-check.json. Expected client errors are WARNING, internal failures ERROR.
 - Local Docker backend/frontend updated; mobile selector workflow and log correlation passed.
 - No implementation task remains. Limits: all-request sampling for the demonstration; no browser analytics or alerts; bounded best-effort export can add up to1.5s to response completion and lose spans during outages/crashes. Current JSON-response middleware does not support future streaming endpoints without changes.
+
+### Audit remediation in progress (2026-10-08)
+
+- Saved docs/remediation-plan.md before edits. Independent Astra assignment review confirms all explicit requirements; implementation assumptions are now gathered in README and docs/assignment-coverage.md.
+- Fixed CORS preservation on backend redeployment, with a frontend-build-failure regression; all4 deploy tests pass.
+- Split CI into typechecks, unit-tests, integration-tests, api-contract, builds and aggregate verify. Backend pinned mypy checks app bodies with Pydantic plugin; integration selection cannot silently skip missing PostgreSQL.
+- Frontend28 tests, typecheck, production build and isolated Chrome checks pass. Retry refetches after503; keyboard focus/errors, Unicode boundaries, reduced motion and320/390/768/1440 widths verified. docs/frontend-check.json records the synthetic-API browser result; no manual screen-reader test.
+- Independent Astra frontend and delivery/LLM/CI reviews found no actionable regressions. Backend reviewer found SDK-internal flush draining still delayed requests; corrected root-span acknowledgment implementation and real-processor regression are under final recheck.
+- Local frontend Docker rebuild/mobile demo/answer/auth checks passed. Cloud frontend build0e2af68d-d02d-4ad6-8fe1-e6a7442e7f0a succeeded; revision eximion-frontend-00003-9sv serves9b33fe2.
+- User warning URL and supplied bundle identify MetaMask extension code. Clean Chrome12-page navigation check produced no listener warning/page exception; unrelated favicon404 recorded honestly. No browser extension modified; no warning suppression added.
+
+### Independent final reviews
+
+All three post-fix Astra reviews are complete. Frontend and deployment/CI/LLM/contract reviews report no actionable findings. Backend reviewer reproduced an SDK-internal flush issue, supplied a refined specification, and re-reviewed the corrected implementation: no remaining actionable findings. Independently reran55 unit tests and mypy9 appfiles; implementer final real-PostgreSQL suite67/67. Export regression uses the actual processor, with timeout/cancel/failure/shutdown cleanup checks. No generation-future fallback remains.
+
+Current implementation: frontend9b33fe2; backendee46085. Final local/cloud/API/trace and hosted CI acceptance are pending below.

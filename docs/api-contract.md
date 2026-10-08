@@ -1,6 +1,6 @@
 ﻿# API contract v1
 
-Pydantic is authoritative. Reject unknown request fields. Trim strings before validation, reject blanks, count Unicode characters. JSON and English messages only. IDs are UUID; timestamps are UTC ISO 8601.
+Pydantic is authoritative. Reject unknown request fields. Trim strings before validation, reject blanks, count Unicode code points. Persisted text fields reject U+0000 with 422 before database access. JSON and English messages only. IDs are UUID; timestamps are UTC ISO 8601.
 
 ## Models
 - ClinicalCaseDraft: title required string 1..120; vignette required string 1..8000; symptoms required array 1..20 of nonblank strings 1..200; age_years optional strict integer 0..120 or null, default null.
@@ -44,3 +44,5 @@ backend/app/schemas.py owns Pydantic models. backend/app/llm.py exports async ex
 
 ## Frontend
 Next.js App Router, Server Component fetches case; Client Components author and answer. NEXT_PUBLIC_API_URL browser origin; API_INTERNAL_URL optional server override. CORS explicit frontend origins. Generated types frontend/src/lib/api.generated.ts; schema aliases derived from components, never handwritten DTOs. API errors support error object and detail array. Preserve input after failures. Review checkbox required; any draft edit/re-extraction invalidates it. English strings centralized. New-case reference is always independently entered. Plain-text rendering, accessible pending/error/not-found states.
+
+Frontend validation uses small shared text/validation helpers, with Unicode White_Space trimming matching Pydantic and code-point length checks. Native UTF-16 maxlength is intentionally omitted. Backend Pydantic remains authoritative. Field validation and request failures are inline, linked by aria-describedby/aria-invalid; validation moves focus to the first invalid field. No toast or form-validation framework is required.
