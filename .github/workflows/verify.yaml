@@ -12,6 +12,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           version: '0.12.4'
+          save-cache: false
       - uses: actions/setup-node@v5
         with:
           node-version: '24.19.0'
@@ -63,6 +64,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           version: '0.12.4'
+          save-cache: false
       - run: uv sync --project backend --frozen
       - run: uv run --project backend python -m pytest backend/tests -m integration
   api-contract:
@@ -72,6 +74,7 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           version: '0.12.4'
+          save-cache: false
       - uses: actions/setup-node@v5
         with:
           node-version: '24.19.0'
