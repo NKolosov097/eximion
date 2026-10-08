@@ -53,4 +53,4 @@ Tests after implementation, without mandatory test-first. Backend integration us
 ## Minimal private analytics
 - [x] Implement protected aggregate endpoint/schema with UTC periods; add database tests and regenerate contract.
 - [x] Add author-key dashboard, three metrics, periods/loading/errors and header navigation; add focused UI/E2E coverage.
-- [ ] Review implementation and visual baselines, pass CI, deploy both services and verify authenticated live reads.
+- [x] Review implementation and visual baselines, pass CI, deploy both services and verify authenticated live reads.

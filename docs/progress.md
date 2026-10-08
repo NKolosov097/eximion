@@ -216,3 +216,9 @@ Current implementation: frontend9b33fe2; backendee46085. Final local/cloud/API/t
 Added a fail-closed author-key aggregate API and `/analytics` dashboard with 7/30/90-day UTC windows, three metrics, empty/error/loading states, and memory-only credentials. Counts use existing records; no database migration or dependency was added.
 
 Validation: 80 backend tests passed against dedicated PostgreSQL test schemas; mypy clean; 45 frontend tests, TypeScript, production build and browser E2E passed. Reviewed all ten Linux/Chromium desktop/mobile screenshots and passed exact comparison. The initial catalog capture differed from two identical later renders by 19 border pixels (one color level); the reviewed reproducible capture is the baseline. Contract files regenerated. Independent auth/privacy/window review found no remaining defects. Cloud rollout and authenticated live verification are pending.
+
+## Minimal private analytics - deployed verification
+
+Source `2eb1a04` passed all eight jobs in GitHub Actions run `37815808268`. Backend build `2f8c0465-b20f-48d4-9160-9e7b90d08511` and frontend build `4e59bc8c-2eaf-40d6-ad09-2a9ddfea335b` succeeded. Cloud Run revisions `eximion-backend-00008-njt` and `eximion-frontend-00010-k8s` each serve 100% of traffic. No migration was needed.
+
+Live read-only verification at 2026-10-08T17:25:37.914Z passed: missing/invalid author key rejected, all three periods accepted, invalid period rejected, aggregate response whitelist and percentage calculations correct, Cache-Control no-store, browser initial/loaded/error/period-change states, key cleared on reload, empty local/session storage, and no horizontal overflow at widths 320/390/768/1440. No browser errors, production writes or Gemini calls were made during this verification. The Analytics header link is live. Metrics count attempts, not unique learners.
