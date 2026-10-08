@@ -181,3 +181,9 @@ Current implementation: frontend9b33fe2; backendee46085. Final local/cloud/API/t
 - Backend Cloud Build b0019517-e525-4c61-ba3f-91c0722647ff and frontend e2bc307a-2c38-45e7-ac4f-6701f1ac68ca succeeded. Ready revisions: eximion-backend-00006-9jf and eximion-frontend-00005-4lg, both serving 100% traffic. Only service images updated; database/secrets/CORS preserved.
 - Live readiness/list API passed with answer fields excluded. Real browser verified Home/Cases/Create navigation, seven listed saved cases, case/detail/back links, Swagger opening in a separate tab with no opener, GitHub target and widths 320/390/768/1440 without overflow or page errors. See navigation-live-check.json.
 - No production data was written during this release verification. Gemini extraction was not rerun for navigation-only changes; its earlier live acceptance remains recorded separately. Screenshot comparisons remain Windows/Chrome-specific.
+
+### Catalog skeleton release (2026-10-08)
+
+- Source 0948007 adds three catalog skeleton cards with screen-reader status and reduced-motion support. Delayed-API browser checks prove placeholder-to-content replacement and no mobile overflow. Typecheck/build, E2E and all eight unchanged screenshot comparisons passed.
+- All seven CI jobs passed: https://github.com/NKolosov097/eximion/actions/runs/37795484030 . Frontend build 5cecc731-6dd7-4958-b80f-1fc6528f4803 succeeded; ready revision eximion-frontend-00006-c4p serves all traffic. Backend unchanged.
+- Live mobile browser verified streamed skeleton HTML, replacement by seven real cases, no overflow and no page errors.

@@ -9,17 +9,18 @@
   "frontend_public_url": "https://eximion-frontend-497115726994.europe-west3.run.app",
   "backend_public_url": "https://eximion-backend-497115726994.europe-west3.run.app",
   "backend_revision": "eximion-backend-00006-9jf",
-  "frontend_revision": "eximion-frontend-00005-4lg",
+  "frontend_revision": "eximion-frontend-00006-c4p",
   "migration_execution": "eximion-migrate-zc94t",
   "backend_build": "b0019517-e525-4c61-ba3f-91c0722647ff",
-  "frontend_build": "e2bc307a-2c38-45e7-ac4f-6701f1ac68ca",
+  "frontend_build": "5cecc731-6dd7-4958-b80f-1fc6528f4803",
   "verified": true,
   "backend_image_revision": "6e59142",
-  "frontend_image_revision": "6e59142",
+  "frontend_image_revision": "0948007",
   "trace_region": "europe-west3",
   "trace_readback_link": "eximion_trace",
   "observability_verified": true,
-  "verified_at": "2026-10-08T14:36:01.769221+00:00",
+  "verified_at": "2026-10-08T14:51:35.637777+00:00",
   "frontend_branding_verified": true,
-  "navigation_catalog_verified": true
+  "navigation_catalog_verified": true,
+  "catalog_skeleton_verified": true
 }
