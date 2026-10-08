@@ -99,6 +99,11 @@ const listen = async (server) => {
     healthy = true;
     await page.getByTestId("case-load-retry").click();
     await page.getByTestId("case-title").waitFor();
+    const iconHref = await page.locator('link[rel="icon"]').getAttribute("href");
+    assert(iconHref, "Every page must link to its favicon");
+    const icon = await page.request.get(new URL(iconHref, origin).href);
+    assert.equal(icon.status(), 200);
+    assert(icon.headers()["content-type"].includes("image/svg+xml"));
     assert(
       requests > failedRequests,
       "Retry must issue a new server-side API request.",
@@ -340,6 +345,7 @@ const listen = async (server) => {
     const report = {
       status: "passed",
       header_home_cases_create_and_brand_navigation: true,
+      favicon_available: true,
       docs_new_tab_icon_noopener_and_footer_github: true,
       attempt_validation_correct_incorrect_error_recovery: true,
       author_review_required_and_reset_on_edit: true,
