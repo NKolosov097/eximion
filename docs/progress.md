@@ -199,4 +199,6 @@ Current implementation: frontend9b33fe2; backendee46085. Final local/cloud/API/t
 - Added exact active header links with aria-current and real case tab titles; production browser assertions confirm a single case API request for metadata and page.
 - Served the existing licensed fonts locally, pinned the Linux/amd64 Playwright image by digest, and added a CI screenshot job with actual/diff artifact uploads. Replaced Windows-specific baselines.
 - Frontend: 39 unit tests, typecheck, production build and expanded E2E passed. Manual Cloud Build 75fb49dc-dc6b-4b31-97a7-91cc8df10e93 generated all eight Linux screenshots and passed a second exact comparison. Local Docker registry download was slow, so the same pinned container ran in Cloud Build.
-- CI publication and live deployment pending below.
+- Reviewed all eight Linux images. Source commit 57caae4 passed every job in GitHub Actions run 37803164578, including screenshot-tests; screenshot-results artifact uploaded successfully.
+- Frontend build 473e9afa-ddab-4978-8215-6554807df0cf succeeded. Revision eximion-frontend-00008-jdd serves 100% of traffic using image 57caae4.
+- Live verification passed: real case title, active links, unsaved leave cancellation, replacement cancellation/answer preservation/review reset, locally served fonts returning 200, and 390px layout without overflow or JavaScript errors. Extraction was mocked for this UI check; no Gemini calls or database writes. Backend and migrations were unchanged.
