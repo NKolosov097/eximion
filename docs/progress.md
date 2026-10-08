@@ -174,3 +174,10 @@ Current implementation: frontend9b33fe2; backendee46085. Final local/cloud/API/t
 - Eight Windows/Chrome screenshot baselines cover home/catalog/case/author at desktop and mobile sizes; all reviewed and clean comparison passed. A controlled one-pixel baseline change failed comparison and generated diff output; restored baseline passed again.
 - Playwright 1.64.0 is pinned as a frontend dev dependency. E2E is included in CI with bundled Chromium. Screenshot comparisons are local Windows/Chrome checks; synthetic API fixtures avoid production writes and Gemini calls.
 - Cloud publication/verification follows this source commit.
+
+### Catalog/navigation release verified (2026-10-08)
+
+- Source 6e59142 pushed; all seven GitHub checks passed, including Linux Chromium E2E: https://github.com/NKolosov097/eximion/actions/runs/37793035290 .
+- Backend Cloud Build b0019517-e525-4c61-ba3f-91c0722647ff and frontend e2bc307a-2c38-45e7-ac4f-6701f1ac68ca succeeded. Ready revisions: eximion-backend-00006-9jf and eximion-frontend-00005-4lg, both serving 100% traffic. Only service images updated; database/secrets/CORS preserved.
+- Live readiness/list API passed with answer fields excluded. Real browser verified Home/Cases/Create navigation, seven listed saved cases, case/detail/back links, Swagger opening in a separate tab with no opener, GitHub target and widths 320/390/768/1440 without overflow or page errors. See navigation-live-check.json.
+- No production data was written during this release verification. Gemini extraction was not rerun for navigation-only changes; its earlier live acceptance remains recorded separately. Screenshot comparisons remain Windows/Chrome-specific.

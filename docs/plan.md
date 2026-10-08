@@ -37,4 +37,4 @@ Tests after implementation, without mandatory test-first. Backend integration us
 ## Navigation and browser regression checks
 - [x] Add Home, Cases, Create case and external Docs navigation; add GitHub credit to footer.
 - [x] Add/run E2E and screenshot regression checks with pinned Playwright, then review captured pages.
-- [ ] Publish verified changes and deploy backend/frontend; verify live navigation and catalog.
+- [x] Publish verified changes and deploy backend/frontend; verify live navigation and catalog.
