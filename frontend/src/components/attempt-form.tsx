@@ -33,7 +33,7 @@ export function AttemptForm({ caseId }: { caseId: string }) {
 
   return (
     <section className="panel attempt-panel">
-      <form onSubmit={submit} aria-busy={pending}>
+      <form onSubmit={submit} aria-busy={pending} data-testid="attempt-form">
         <label className="attempt-label" htmlFor="diagnosis">
           {messages.diagnosisLabel}
         </label>
@@ -43,6 +43,7 @@ export function AttemptForm({ caseId }: { caseId: string }) {
         <div className="attempt-input-row">
           <input
             id="diagnosis"
+            data-testid="attempt-diagnosis"
             value={diagnosis}
             onChange={(event) => {
               setDiagnosis(event.target.value);
@@ -54,31 +55,37 @@ export function AttemptForm({ caseId }: { caseId: string }) {
             disabled={pending}
             aria-describedby="diagnosis-hint"
           />
-          <button className="button" type="submit" disabled={pending}>
+          <button
+            className="button"
+            type="submit"
+            disabled={pending}
+            data-testid="attempt-submit"
+          >
             {pending ? messages.submitting : messages.submit}
             <span aria-hidden="true"> →</span>
           </button>
         </div>
         {error && (
-          <p role="alert" className="error-message">
+          <p role="alert" className="error-message" data-testid="attempt-error">
             {error}
           </p>
         )}
         {result && (
           <div
             role="status"
+            data-testid="attempt-result"
             className={`attempt-result ${result.is_correct ? "result-correct" : "result-incorrect"}`}
           >
             <div>
-              <h3>
+              <h3 data-testid="attempt-result-title">
                 {result.is_correct ? messages.correct : messages.incorrect}
               </h3>
-              <p>{result.feedback}</p>
+              <p data-testid="attempt-feedback">{result.feedback}</p>
               <p className="field-hint">{messages.another}</p>
             </div>
             <div className="score">
               <span>{messages.score}</span>
-              <strong>
+              <strong data-testid="attempt-score">
                 {result.score}
                 <small> / {result.max_score}</small>
               </strong>

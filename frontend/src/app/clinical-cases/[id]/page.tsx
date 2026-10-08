@@ -30,33 +30,35 @@ export default async function CasePage({
   const clinicalCase: ClinicalCase = await response.json();
 
   return (
-    <div className="case-page">
-      <Link href="/" className="back-link">
+    <div className="case-page" data-testid="case-page">
+      <Link href="/" className="back-link" data-testid="case-back-home">
         ← {messages.back}
       </Link>
       <div className="page-heading">
         <p className="eyebrow">{messages.practiceEyebrow}</p>
-        <h1>{clinicalCase.title}</h1>
+        <h1 data-testid="case-title">{clinicalCase.title}</h1>
         <p className="lead">{messages.practiceDescription}</p>
       </div>
       <div className="case-layout">
         <article className="panel case-vignette">
           <div className="case-section-top">
             <h2>{messages.vignette}</h2>
-            <span className="age-badge">
+            <span className="age-badge" data-testid="case-age">
               {messages.age}:{" "}
               {clinicalCase.age_years == null
                 ? messages.ageUnknown
                 : `${clinicalCase.age_years} ${messages.years}`}
             </span>
           </div>
-          <p className="vignette-text">{clinicalCase.vignette}</p>
+          <p className="vignette-text" data-testid="case-vignette">
+            {clinicalCase.vignette}
+          </p>
         </article>
         <aside className="panel symptoms-panel">
           <h2>{messages.symptoms}</h2>
-          <ul className="symptom-list">
+          <ul className="symptom-list" data-testid="case-symptoms">
             {clinicalCase.symptoms.map((symptom, index) => (
-              <li key={`${index}-${symptom}`}>
+              <li key={`${index}-${symptom}`} data-testid="case-symptom">
                 <span aria-hidden="true">+</span>
                 {symptom}
               </li>

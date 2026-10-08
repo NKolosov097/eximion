@@ -32,14 +32,25 @@ const response = (body: unknown, status = 200) =>
   });
 
 async function extractDraft() {
-  fireEvent.change(screen.getByLabelText(messages.sourceLabel), {
+  expect(screen.getByTestId("author-source-text")).toBe(
+    screen.getByLabelText(messages.sourceLabel),
+  );
+  fireEvent.change(screen.getByTestId("author-source-text"), {
     target: { value: "A synthetic patient reports fever and dry cough." },
   });
-  fireEvent.change(screen.getByLabelText(messages.keyLabel), {
+  fireEvent.change(screen.getByTestId("author-key"), {
     target: { value: "test-author-key" },
   });
-  fireEvent.click(screen.getByRole("button", { name: /Extract case/ }));
-  await screen.findByLabelText(messages.titleLabel);
+  expect(screen.getByTestId("author-draft-empty")).toBeTruthy();
+  fireEvent.click(screen.getByTestId("author-extract-submit"));
+  expect(
+    screen.getByTestId("author-extract-form").getAttribute("aria-busy"),
+  ).toBe("true");
+  await screen.findByTestId("author-draft-title");
+  expect(
+    screen.getByTestId("author-extract-form").getAttribute("aria-busy"),
+  ).toBe("false");
+  expect(screen.queryByTestId("author-draft-empty")).toBeNull();
 }
 
 describe("author workflow", () => {
@@ -47,12 +58,27 @@ describe("author workflow", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response(extraction)));
     render(<AuthorForm />);
     await extractDraft();
-    const review = screen.getByLabelText(
-      messages.reviewedLabel,
+    for (const [selector, label] of [
+      ["author-key", messages.keyLabel],
+      ["author-draft-title", messages.titleLabel],
+      ["author-draft-vignette", messages.vignetteLabel],
+      ["author-draft-symptoms", messages.symptomsLabel],
+      ["author-draft-age", messages.ageLabel],
+      ["author-reference-diagnosis", messages.referenceLabel],
+      ["author-accepted-alternatives", messages.alternativesLabel],
+      ["author-review-confirmation", messages.reviewedLabel],
+    ])
+      expect(screen.getByTestId(selector)).toBe(screen.getByLabelText(label));
+    expect(
+      screen.getByTestId("author-draft-warnings").getAttribute("role"),
+    ).toBe("status");
+    expect(
+      screen.getByTestId("author-save-form").getAttribute("aria-busy"),
+    ).toBe("false");
+    const review = screen.getByTestId(
+      "author-review-confirmation",
     ) as HTMLInputElement;
-    const save = screen.getByRole("button", {
-      name: /Save case/,
-    }) as HTMLButtonElement;
+    const save = screen.getByTestId("author-save-submit") as HTMLButtonElement;
     expect(save.disabled).toBe(true);
     fireEvent.click(review);
     expect(save.disabled).toBe(false);
@@ -97,7 +123,7 @@ describe("author workflow", () => {
     });
     fireEvent.click(screen.getByLabelText(messages.reviewedLabel));
     fireEvent.click(screen.getByRole("button", { name: /Save case/ }));
-    expect((await screen.findByRole("alert")).textContent).toBe(
+    expect((await screen.findByTestId("author-save-error")).textContent).toBe(
       "Please try later.",
     );
     expect(
@@ -134,10 +160,10 @@ describe("author workflow", () => {
     render(<AuthorForm />);
     await extractDraft();
     fireEvent.click(screen.getByLabelText(messages.reviewedLabel));
-    fireEvent.click(screen.getByRole("button", { name: /Extract again/ }));
-    expect((await screen.findByRole("alert")).textContent).toBe(
-      messages.networkError,
-    );
+    fireEvent.click(screen.getByTestId("author-extract-submit"));
+    expect(
+      (await screen.findByTestId("author-extract-error")).textContent,
+    ).toBe(messages.networkError);
     expect(
       (screen.getByLabelText(messages.titleLabel) as HTMLInputElement).value,
     ).toBe(draft.title);
@@ -183,11 +209,17 @@ describe("diagnosis submission", () => {
         ),
     );
     render(<AttemptForm caseId="case-id" />);
-    fireEvent.change(screen.getByLabelText(messages.diagnosisLabel), {
+    expect(screen.getByTestId("attempt-diagnosis")).toBe(
+      screen.getByLabelText(messages.diagnosisLabel),
+    );
+    fireEvent.change(screen.getByTestId("attempt-diagnosis"), {
       target: { value: "Influenza" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Submit diagnosis/ }));
-    expect((await screen.findByRole("alert")).textContent).toBe(
+    fireEvent.click(screen.getByTestId("attempt-submit"));
+    expect(screen.getByTestId("attempt-form").getAttribute("aria-busy")).toBe(
+      "true",
+    );
+    expect((await screen.findByTestId("attempt-error")).textContent).toBe(
       messages.validationError,
     );
     expect(
@@ -197,26 +229,33 @@ describe("diagnosis submission", () => {
   });
 
   it("shows the returned score and clears stale feedback when the answer changes", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        response(
-          {
-            score: 100,
-            max_score: 100,
-            is_correct: true,
-            feedback: "Your diagnosis matches an accepted answer.",
-          },
-          201,
-        ),
-      );
+    const fetchMock = vi.fn().mockResolvedValue(
+      response(
+        {
+          score: 100,
+          max_score: 100,
+          is_correct: true,
+          feedback: "Your diagnosis matches an accepted answer.",
+        },
+        201,
+      ),
+    );
     vi.stubGlobal("fetch", fetchMock);
     render(<AttemptForm caseId="case-id" />);
     fireEvent.change(screen.getByLabelText(messages.diagnosisLabel), {
       target: { value: "FLU" },
     });
     fireEvent.click(screen.getByRole("button", { name: /Submit diagnosis/ }));
-    expect((await screen.findByRole("status")).textContent).toContain("100");
+    expect(
+      (await screen.findByTestId("attempt-result")).getAttribute("role"),
+    ).toBe("status");
+    expect(screen.getByTestId("attempt-score").textContent).toBe("100 / 100");
+    expect(screen.getByTestId("attempt-result-title").textContent).toBe(
+      messages.correct,
+    );
+    expect(screen.getByTestId("attempt-feedback").textContent).toBe(
+      "Your diagnosis matches an accepted answer.",
+    );
     expect(screen.getByText(messages.correct)).toBeTruthy();
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       diagnosis: "FLU",
@@ -224,6 +263,6 @@ describe("diagnosis submission", () => {
     fireEvent.change(screen.getByLabelText(messages.diagnosisLabel), {
       target: { value: "Cold" },
     });
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByTestId("attempt-result")).toBeNull();
   });
 });

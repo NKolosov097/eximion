@@ -13,12 +13,17 @@ export default function HomePage() {
           <h1>{messages.homeTitle}</h1>
           <p className="lead">{messages.homeDescription}</p>
           <div className="actions">
-            <Link className="button" href="/clinical-cases/new">
+            <Link
+              className="button"
+              href="/clinical-cases/new"
+              data-testid="home-create-case"
+            >
               {messages.create}
               <span aria-hidden="true"> →</span>
             </Link>
             <Link
               className="text-link"
+              data-testid="home-demo-case-primary"
               href={`/clinical-cases/${DEMO_CASE_ID}`}
             >
               {messages.demo}
@@ -68,6 +73,7 @@ export default function HomePage() {
         </div>
         <Link
           className="button button-secondary"
+          data-testid="home-demo-case-banner"
           href={`/clinical-cases/${DEMO_CASE_ID}`}
         >
           {messages.demo}

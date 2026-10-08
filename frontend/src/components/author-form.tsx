@@ -109,6 +109,7 @@ export function AuthorForm() {
     <div className="author-layout">
       <form
         className="panel source-panel"
+        data-testid="author-extract-form"
         onSubmit={extract}
         aria-busy={pending === "extract"}
       >
@@ -120,6 +121,7 @@ export function AuthorForm() {
           <label htmlFor="source-text">{messages.sourceLabel}</label>
           <textarea
             id="source-text"
+            data-testid="author-source-text"
             value={source}
             onChange={(event) => {
               setSource(event.target.value);
@@ -138,6 +140,7 @@ export function AuthorForm() {
           <label htmlFor="author-key">{messages.keyLabel}</label>
           <input
             id="author-key"
+            data-testid="author-key"
             type="password"
             autoComplete="off"
             value={authorKey}
@@ -147,7 +150,11 @@ export function AuthorForm() {
           <p id="key-hint" className="field-hint">
             {messages.keyHint}
           </p>
-          <button className="button full-width" type="submit">
+          <button
+            className="button full-width"
+            type="submit"
+            data-testid="author-extract-submit"
+          >
             {pending === "extract"
               ? messages.extracting
               : draft
@@ -157,13 +164,17 @@ export function AuthorForm() {
           </button>
         </fieldset>
         {extractError && (
-          <p role="alert" className="error-message">
+          <p
+            role="alert"
+            className="error-message"
+            data-testid="author-extract-error"
+          >
             {extractError}
           </p>
         )}
       </form>
       {!draft ? (
-        <section className="panel draft-empty">
+        <section className="panel draft-empty" data-testid="author-draft-empty">
           <span className="draft-icon" aria-hidden="true">
             ≡
           </span>
@@ -173,6 +184,7 @@ export function AuthorForm() {
       ) : (
         <form
           className="panel draft-panel"
+          data-testid="author-save-form"
           onSubmit={save}
           aria-busy={pending === "save"}
         >
@@ -182,7 +194,11 @@ export function AuthorForm() {
               <p>{messages.draftDescription}</p>
             </div>
             {warnings.length > 0 && (
-              <div className="notice" role="status">
+              <div
+                className="notice"
+                role="status"
+                data-testid="author-draft-warnings"
+              >
                 {warnings.map((warning) => (
                   <p key={warning}>{warning}</p>
                 ))}
@@ -191,6 +207,7 @@ export function AuthorForm() {
             <label htmlFor="case-title">{messages.titleLabel}</label>
             <input
               id="case-title"
+              data-testid="author-draft-title"
               required
               maxLength={120}
               value={draft.title}
@@ -199,6 +216,7 @@ export function AuthorForm() {
             <label htmlFor="case-vignette">{messages.vignetteLabel}</label>
             <textarea
               id="case-vignette"
+              data-testid="author-draft-vignette"
               required
               maxLength={8000}
               rows={5}
@@ -210,6 +228,7 @@ export function AuthorForm() {
                 <label htmlFor="case-symptoms">{messages.symptomsLabel}</label>
                 <textarea
                   id="case-symptoms"
+                  data-testid="author-draft-symptoms"
                   required
                   rows={4}
                   value={symptoms}
@@ -227,6 +246,7 @@ export function AuthorForm() {
                 <label htmlFor="case-age">{messages.ageLabel}</label>
                 <input
                   id="case-age"
+                  data-testid="author-draft-age"
                   type="number"
                   min={0}
                   max={120}
@@ -256,6 +276,7 @@ export function AuthorForm() {
             </label>
             <input
               id="reference-diagnosis"
+              data-testid="author-reference-diagnosis"
               required
               maxLength={200}
               value={reference}
@@ -269,6 +290,7 @@ export function AuthorForm() {
             </label>
             <textarea
               id="accepted-alternatives"
+              data-testid="author-accepted-alternatives"
               rows={3}
               value={alternatives}
               onChange={(event) => {
@@ -283,6 +305,7 @@ export function AuthorForm() {
             <label className="review-check" htmlFor="review-confirmation">
               <input
                 id="review-confirmation"
+                data-testid="author-review-confirmation"
                 type="checkbox"
                 checked={reviewed}
                 onChange={(event) => setReviewed(event.target.checked)}
@@ -292,12 +315,21 @@ export function AuthorForm() {
             </label>
             <p className="field-hint">{messages.reviewHint}</p>
             {saveError && (
-              <p role="alert" className="error-message">
+              <p
+                role="alert"
+                className="error-message"
+                data-testid="author-save-error"
+              >
                 {saveError}
               </p>
             )}
             <div className="save-actions">
-              <button className="button" type="submit" disabled={!reviewed}>
+              <button
+                className="button"
+                type="submit"
+                disabled={!reviewed}
+                data-testid="author-save-submit"
+              >
                 {pending === "save" ? messages.saving : messages.save}
                 <span aria-hidden="true"> →</span>
               </button>

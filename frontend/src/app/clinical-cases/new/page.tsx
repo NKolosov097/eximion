@@ -9,7 +9,7 @@ export default function NewCasePage() {
     <>
       <div className="page-heading">
         <p className="eyebrow">{messages.newEyebrow}</p>
-        <h1>{messages.newTitle}</h1>
+        <h1 data-testid="author-page-title">{messages.newTitle}</h1>
         <p className="lead">{messages.newDescription}</p>
       </div>
       <AuthorForm />
