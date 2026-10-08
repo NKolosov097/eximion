@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "case_url": "https://eximion-frontend-497115726994.europe-west3.run.app/clinical-cases/2b6c0104-e4ba-4879-a220-7aaa6c6e6589",
+  "real_gemini": true,
+  "review_save_correct_incorrect_reload": true,
+  "hidden_answers": true,
+  "mobile_overflow": false,
+  "page_errors": []
+}

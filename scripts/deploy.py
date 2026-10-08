@@ -88,8 +88,13 @@ def deploy(project, region, model, model_location):
     if not exists("iam", "service-accounts", "describe", frontend_account):
         call("iam", "service-accounts", "create", "eximion-frontend", "--display-name=Eximion frontend")
     call("run", "deploy", "eximion-frontend", "--image", frontend_image, "--region", region, "--service-account", frontend_account, "--set-env-vars", f"API_INTERNAL_URL={backend_url}", "--allow-unauthenticated", "--port=3000", "--memory=512Mi", "--cpu=1", "--min=0", "--max=2", "--concurrency=40")
-    frontend_url = call("run", "services", "describe", "eximion-frontend", "--region", region, "--format=value(status.url)", capture=True)
-    call("run", "services", "update", "eximion-backend", "--region", region, "--update-env-vars", f"CORS_ORIGINS={frontend_url}")
+    frontend_service = json.loads(call("run", "services", "describe", "eximion-frontend", "--region", region, "--format=json(metadata.annotations,status.url)", capture=True))
+    frontend_url = frontend_service["status"]["url"]
+    frontend_origins = list(dict.fromkeys([frontend_url, *json.loads(frontend_service["metadata"]["annotations"].get("run.googleapis.com/urls", "[]"))]))
+    with tempfile.TemporaryDirectory(prefix="eximion-deploy-") as directory:
+        flags = Path(directory) / "cors.json"
+        flags.write_text(json.dumps({"--update-env-vars": {"CORS_ORIGINS": ",".join(frontend_origins)}}), encoding="utf-8")
+        call("run", "services", "update", "eximion-backend", "--region", region, f"--flags-file={flags}")
     result = {"project": project, "region": region, "model": model, "model_location": model_location, "backend_url": backend_url, "frontend_url": frontend_url, "git_revision": revision}
     (ROOT / "docs/deployment.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))

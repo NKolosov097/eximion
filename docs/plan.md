@@ -18,10 +18,10 @@ Contract changes require explicit coordination before implementation.
 - [x] Pin dependencies, generate OpenAPI and TypeScript with one command and drift gate.
 - [x] Compose, Dockerfiles, CI, environment examples and runbook.
 - [x] Run tests, migrations, builds, Compose smoke and browser journey; fix integration defects.
-- [ ] GCP Frankfurt resources, billing/IAM check, Secret Manager, build/deploy, migration/seed jobs.
-- [ ] Live Gemini harness and deployed end-to-end checks; record actual URLs and revisions.
+- [x] GCP Frankfurt resources, billing/IAM check, Secret Manager, build/deploy, migration/seed jobs.
+- [x] Live Gemini harness and deployed end-to-end checks; record actual URLs and revisions.
 - [x] Local review against specification, documented limitations and verified commits/push with successful GitHub CI.
-- [ ] Final cloud acceptance: live evaluation, deployed browser workflow and recorded URLs/revisions.
+- [x] Final cloud acceptance: live evaluation, deployed browser workflow and recorded URLs/revisions.
 
 ## Cloud decisions
 Project eximion-511003, applications/SQL/registry in europe-west3 (Frankfurt), Gemini regional availability verified before selecting model/location. Separate backend identity with Vertex AI User, Cloud SQL Client and secret access. Public case endpoints; author key guards creation/extraction. Secret Manager stores database URL and author key. Cloud Run max instances bounded, small DB connection pool; no secret in build arguments or client bundle. Cloud SQL incurs ongoing cost while provisioned. GitHub remote https://github.com/NKolosov097/eximion.git; do not create a repository.

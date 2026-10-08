@@ -2,6 +2,12 @@
 
 A small educational clinical-case application: FastAPI, PostgreSQL, Next.js/TypeScript, and Gemini structured extraction. **Synthetic data only. Not a medical diagnostic system.**
 
+## Live application
+
+Open https://eximion-frontend-497115726994.europe-west3.run.app . API documentation: https://eximion-backend-497115726994.europe-west3.run.app/docs . The demo can be solved without an author key. Creation and Gemini extraction require the private author key stored locally in `.local/cloud-secrets.json` (`author_api_key`); never commit or share that file because it also contains database credentials.
+
+Both applications and PostgreSQL run in Frankfurt. Gemini uses the EU endpoint. Real extraction, browser authoring, scoring, persistence and mobile layout have been verified; see [deployment metadata](docs/deployment.json) and [verification record](docs/progress.md).
+
 ## Run locally
 
 Requirements: Docker Compose. For tests and contract generation also install uv and Node 24.

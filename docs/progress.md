@@ -73,3 +73,32 @@ GitHub remote is the user-supplied existing PUBLIC NKolosov097/eximion repositor
 6. Record URLs, Cloud Run revisions, live evaluation results, persistence and remaining limitations; update plan and push verified changes.
 
 Local services are left running at http://localhost:3000 and http://localhost:8000. Stop with docker compose stop when desired; do not remove the database volume unless its data is intentionally disposable.
+
+## Billing activation and live model checkpoint
+
+Billing now enabled, confirmed by gcloud on 2026-10-07 (local date). Provisioning started with scripts/deploy.py; Artifact Registry and backend service identity created, Cloud SQL creation in progress.
+
+Live Gemini harness executed using a short-lived token obtained from the existing gcloud login, held only in memory and supplied as ADC for this run. No credential file or token was committed. Five real gemini-3.5-flash-lite requests against eu: schema validity 1.0, age accuracy 1.0, symptom precision/recall 1.0, diagnosis leak count 0. See backend/eval/live-report.json. This tiny synthetic set is a regression check, not medical accuracy evidence. Runtime service-identity extraction and deployed browser verification still pending.
+
+Responsive CSS commit a089464 passed GitHub CI: https://github.com/NKolosov097/eximion/actions/runs/37734974220.
+
+
+## Completed cloud verification (2026-10-08 UTC)
+
+All earlier billing/deployment blockers above are resolved. No remaining implementation or deployment task is pending.
+
+- Cloud SQL eximion-db: POSTGRES_17, db-f1-micro, europe-west3-c, RUNNABLE. Creation took roughly 12 minutes. Persistent database, normalized migrations and demo seed are active.
+- Backend image build 384d37b1-82b6-4d12-9dca-3a7ec442fb19: SUCCESS. Frontend image build c554f39d-3d38-46a9-8501-5d0f11d927dd: SUCCESS. Application image source revision a089464.
+- Migration job execution eximion-migrate-zc94t: successful.
+- Frontend: https://eximion-frontend-497115726994.europe-west3.run.app ; ready revision eximion-frontend-00001-9tn.
+- Backend: https://eximion-backend-497115726994.europe-west3.run.app ; ready revision eximion-backend-00003-bhr.
+- Both services use separate dedicated runtime identities and route 100% traffic to their ready revisions. Runtime database/author credentials are Secret Manager references.
+- uv run --project backend python scripts/smoke.py https://eximion-backend-497115726994.europe-west3.run.app --live with AUTHOR_API_KEY loaded privately: passed. Real extraction, create/get, correct/incorrect attempts, invalid author rejection. Case 93cb8ced-8e78-42fc-a333-e4dfbb3345a5 remained accessible after another backend revision.
+- Cloud Run live evaluation: 5 cases, schema/age/precision 1.0, macro recall 0.9333, zero listed diagnosis leaks. Report backend/eval/live-report.json. Runtime identity (not developer ADC) made these model requests. Small synthetic regression set only.
+- node .local/cloud-browser-check.cjs: passed against both actual frontend URL aliases. Real extraction of source containing a final diagnosis, independently entered reference, manual title edit, review, save, correct/incorrect attempts, reload, hidden-answer response check and 390px screenshot. No page errors or horizontal overflow. Report docs/cloud-browser-check.json.
+- Explicit CORS preflight validated both Google-provided frontend URL aliases. Corrected deploy.py to obtain those URLs from Cloud Run metadata and pass a structured flags-file; Windows cmd otherwise stripped a custom separator. Final update succeeded without altering credentials.
+- uv run --project backend python -m unittest discover -s scripts -p "test_*.py" -v: 3 passed after deployment-script correction.
+
+### Remaining limits
+
+Educational demo only; synthetic data and author review required. Exact grading and small alias-based evaluation are intentionally limited. Public answer submissions are not protected by a full multi-user abuse-control system. Cloud SQL has ongoing charges while provisioned; Cloud Run limits are not a hard budget cap. No cloud resources are deleted automatically.

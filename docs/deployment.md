@@ -6,7 +6,7 @@ Project `eximion-511003`. Cloud Run frontend/backend, Cloud SQL PostgreSQL and A
 
 Required: billing enabled; operator permissions to enable APIs, create service accounts/IAM bindings, Cloud SQL, Artifact Registry, Secret Manager, Cloud Build and Cloud Run. `gcloud auth login` establishes the deploy identity. Enable application-default credentials only for host-based live evaluation.
 
-At initial inspection billing was disabled. This blocks real provisioning and model calls; it is not a passing deployment.
+Billing was enabled by the owner on 2026-10-07 local time. Deployment and live verification completed on 2026-10-08 UTC. Actual URLs, build IDs, ready revisions and migration execution are in deployment.json. Both Cloud Run URL aliases are allowed explicitly in CORS.
 
 ## Deploy
 
