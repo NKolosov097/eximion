@@ -102,3 +102,30 @@ All earlier billing/deployment blockers above are resolved. No remaining impleme
 ### Remaining limits
 
 Educational demo only; synthetic data and author review required. Exact grading and small alias-based evaluation are intentionally limited. Public answer submissions are not protected by a full multi-user abuse-control system. Cloud SQL has ongoing charges while provisioned; Cloud Run limits are not a hard budget cap. No cloud resources are deleted automatically.
+
+
+## Observability and E2E selector checkpoint (2026-10-08 UTC)
+
+User requested stable E2E selectors and tracing/logging across backend layers. Specification and tasks: observability-plan.md.
+
+- 45 stable frontend data-testid attributes; selector contract in e2e-selectors.md. Frontend13 tests, typecheck and production build passed.
+- Backend OpenTelemetry SDK/OTLP exporter1.45.1, grpcio1.84.0, google-auth2.61.0 pinned and locked.54 tests passed against real PostgreSQL;11 focused observability tests passed after expected4xx severity correction.
+- Independent review fixed cancellation handling, safe SDK auth-error logging and CORS on unexpected500. Logs exclude bodies, keys, diagnoses, SQL and raw exception text.
+- API regeneration: uv run --project backend python scripts/generate-contract.py; no diff in OpenAPI/generated TS.
+- Deployment safety: uv run --project backend python -m unittest discover -s scripts -p "test_*.py" -v;3 passed, existing trace bucket preserved.
+- Local production Docker images rebuilt; mobile browser demo/grading/author401 check passed through stable selectors. Correlated X-Trace-ID/CORS and structured container logs verified.
+- Regional _Trace bucket initialized in europe-west3. Linked BigQuery dataset eximion_trace created for supported programmatic readback of OTLP spans (no trace copy). Trace API legacy read methods do not support OTLP-ingested spans.
+- Frontend Cloud Build7b0a4374-c4e8-4df5-befb-965db2b18d8c passed; frontend revision eximion-frontend-00002-n69 serves selector implementation629f47b.
+- Backend final image build c22090ce-c7ab-49be-9e7e-a0c53bd5042f in progress for ca033cf; cloud export/browser/span readback still pending at this checkpoint.
+- Current remote implementation commits pushed through ca033cf; CI run37745048339 in progress.
+
+
+### Observability acceptance completed
+
+- Final backend Cloud Build c22090ce-c7ab-49be-9e7e-a0c53bd5042f: SUCCESS. Runtime revision eximion-backend-00004-qgz uses ca033cf, TRACE_EXPORT_ENABLED=true, CLOUD_REGION=europe-west3. Existing DB/secrets/CORS retained.
+- GitHub CI37745048339: SUCCESS (54 backend tests,13 frontend tests,3 deployment tests, generated contract drift check, typecheck, production and Docker builds).
+- node scripts/browser-smoke.cjs: PASS against canonical cloud frontend. Real Gemini extraction, independent reference/edit/review/save, correct/incorrect answers, reload, hidden-answer checks,390px layout. Stable selectors used; zero page errors. docs/cloud-browser-check.json contains5 request trace IDs.
+- uv run --project backend python scripts/verify_cloud_traces.py: PASS. Read42 actual stored OTLP spans through linked BigQuery dataset; all42 have matching Cloud Logging entries; expected layers and parent IDs verified; known clinical/key/SQL markers absent. Report docs/cloud-trace-check.json. First read was empty due ingestion delay; retry succeeded. Query reported0 processed bytes.
+- Cloud401/422/404 probes: expected status, supplied W3C trace ID preserved, public frontend CORS readable. Report docs/cloud-error-check.json. Expected client errors are WARNING, internal failures ERROR.
+- Local Docker backend/frontend updated; mobile selector workflow and log correlation passed.
+- No implementation task remains. Limits: all-request sampling for the demonstration; no browser analytics or alerts; bounded best-effort export can add up to1.5s to response completion and lose spans during outages/crashes. Current JSON-response middleware does not support future streaming endpoints without changes.

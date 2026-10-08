@@ -1,6 +1,34 @@
 {
   "status": "passed",
-  "case_url": "https://eximion-frontend-497115726994.europe-west3.run.app/clinical-cases/2b6c0104-e4ba-4879-a220-7aaa6c6e6589",
+  "stable_selectors": true,
+  "trace_ids": [
+    {
+      "path": "/api/v1/clinical-cases/extract",
+      "trace_id": "79a5dd2eb6c65e24db056e3cc07cd90f",
+      "status": 200
+    },
+    {
+      "path": "/api/v1/clinical-cases",
+      "trace_id": "8d49f4ee9ed939cd6ee26bb5a62945ea",
+      "status": 201
+    },
+    {
+      "path": "/api/v1/clinical-cases/e9169308-7df3-47ae-b2e5-28348d7dc839/attempts",
+      "trace_id": "87440a98b05c8c006ee26bb5a62947a9",
+      "status": 201
+    },
+    {
+      "path": "/api/v1/clinical-cases/e9169308-7df3-47ae-b2e5-28348d7dc839/attempts",
+      "trace_id": "48b300ed63203e316ee26bb5a629497e",
+      "status": 201
+    },
+    {
+      "path": "/api/v1/clinical-cases/{id}",
+      "trace_id": "63b1f825c70e6519035471c895febb4a",
+      "status": 200
+    }
+  ],
+  "case_url": "https://eximion-frontend-aprnyhognq-ey.a.run.app/clinical-cases/e9169308-7df3-47ae-b2e5-28348d7dc839",
   "real_gemini": true,
   "review_save_correct_incorrect_reload": true,
   "hidden_answers": true,

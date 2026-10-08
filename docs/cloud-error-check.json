@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "checks": [
+    {
+      "status": 401,
+      "trace_id": "6f3391034f214dd1bd14117bfb2f04c3",
+      "propagation": true,
+      "cors": true
+    },
+    {
+      "status": 422,
+      "trace_id": "1201a37d65494674bd004b7f0f057a55",
+      "propagation": true,
+      "cors": true
+    },
+    {
+      "status": 404,
+      "trace_id": "57665b6cce2b4ffe8592093d8b58729d",
+      "propagation": true,
+      "cors": true
+    }
+  ]
+}

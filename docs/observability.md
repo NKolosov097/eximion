@@ -8,7 +8,7 @@ Run `docker compose logs backend`. Find the `X-Trace-ID` response header in the 
 
 ## Cloud inspection
 
-The deploy script enables Telemetry and Cloud Trace APIs, grants the backend identity trace-writing and quota-use permissions, and sets `TRACE_EXPORT_ENABLED=true`. ADC comes from the attached runtime identity. The standard OTLP/gRPC exporter sends to `telemetry.googleapis.com:443`; logs go to stdout and Cloud Run collects them. `GOOGLE_CLOUD_PROJECT`, `CLOUD_REGION`, `K_SERVICE`, and `K_REVISION` identify the deployed service.
+The deploy script enables Telemetry and Cloud Trace APIs, grants the backend identity trace-writing and quota-use permissions, and sets `TRACE_EXPORT_ENABLED=true`. ADC comes from the attached runtime identity. The standard OTLP/gRPC exporter sends to `telemetry.googleapis.com:443`; logs go to the container log stream and Cloud Run collects them. `GOOGLE_CLOUD_PROJECT`, `CLOUD_REGION`, `K_SERVICE`, and `K_REVISION` identify the deployed service.
 
 Open [Logs Explorer](https://console.cloud.google.com/logs/query?project=eximion-511003) and use:
 

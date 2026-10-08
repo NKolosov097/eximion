@@ -44,4 +44,4 @@ GitHub `verify` workflow runs PostgreSQL tests, contract drift, frontend tests/b
 
 ## Tracing
 
-The backend runtime exports OpenTelemetry spans through the Telemetry API using its existing service identity. The deployment script enables trace ingestion and grants `roles/telemetry.tracesWriter` plus `roles/serviceusage.serviceUsageConsumer`. Structured stdout logs are collected by Cloud Run. See [observability.md](observability.md) for correlation, verification and delivery limits.
+The backend runtime exports OpenTelemetry spans through the Telemetry API using its existing service identity. The deployment script enables trace ingestion and grants `roles/telemetry.tracesWriter` plus `roles/serviceusage.serviceUsageConsumer`. Structured container logs are collected by Cloud Run. See [observability.md](observability.md) for correlation, verification and delivery limits.

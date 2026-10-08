@@ -1,0 +1,76 @@
+{
+  "status": "passed",
+  "source": "stored_otlp_spans_bigquery_link",
+  "region": "europe-west3",
+  "sensitive_content_absent": true,
+  "traces": [
+    {
+      "trace_id": "79a5dd2eb6c65e24db056e3cc07cd90f",
+      "span_count": 7,
+      "correlated_log_count": 7,
+      "operations": [
+        "POST /api/v1/clinical-cases/extract",
+        "author.authorize",
+        "case.extract",
+        "gemini.extract",
+        "gemini.output.validate",
+        "gemini.request",
+        "request.validate"
+      ]
+    },
+    {
+      "trace_id": "8d49f4ee9ed939cd6ee26bb5a62945ea",
+      "span_count": 8,
+      "correlated_log_count": 8,
+      "operations": [
+        "POST /api/v1/clinical-cases",
+        "author.authorize",
+        "case.create",
+        "db.query",
+        "db.transaction",
+        "request.validate"
+      ]
+    },
+    {
+      "trace_id": "87440a98b05c8c006ee26bb5a62947a9",
+      "span_count": 10,
+      "correlated_log_count": 10,
+      "operations": [
+        "POST /api/v1/clinical-cases/{id}/attempts",
+        "case.attempt",
+        "case.load",
+        "db.query",
+        "db.transaction",
+        "diagnosis.grade",
+        "request.validate"
+      ]
+    },
+    {
+      "trace_id": "48b300ed63203e316ee26bb5a629497e",
+      "span_count": 10,
+      "correlated_log_count": 10,
+      "operations": [
+        "POST /api/v1/clinical-cases/{id}/attempts",
+        "case.attempt",
+        "case.load",
+        "db.query",
+        "db.transaction",
+        "diagnosis.grade",
+        "request.validate"
+      ]
+    },
+    {
+      "trace_id": "63b1f825c70e6519035471c895febb4a",
+      "span_count": 7,
+      "correlated_log_count": 7,
+      "operations": [
+        "GET /api/v1/clinical-cases/{id}",
+        "case.load",
+        "case.read",
+        "db.query",
+        "db.transaction.rollback"
+      ]
+    }
+  ],
+  "bytes_processed": "0"
+}

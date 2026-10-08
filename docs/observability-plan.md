@@ -22,8 +22,8 @@ Local runs retain correlated JSON logs without requiring Google credentials. Clo
 - [x] Add selectors and selector tests.
 - [x] Finalize exporter configuration and implement backend instrumentation.
 - [x] Verify functional tests and sensitive-data exclusion.
-- [ ] Deploy applications and verify E2E selectors, logs and actual exported spans.
-- [ ] Record commands, evidence and limitations; commit verified changes.
+- [x] Deploy applications and verify E2E selectors, logs and actual exported spans.
+- [x] Record commands, evidence and limitations; commit verified changes.
 
 ## Export contract
 
