@@ -37,13 +37,17 @@ def deploy(project, region, model, model_location):
     billing = json.loads(call("billing", "projects", "describe", project, "--format=json", capture=True))
     if not billing.get("billingEnabled"):
         raise SystemExit("Billing is disabled. Link a billing account before provisioning.")
-    call("services", "enable", "run.googleapis.com", "sqladmin.googleapis.com", "artifactregistry.googleapis.com", "cloudbuild.googleapis.com", "secretmanager.googleapis.com", "aiplatform.googleapis.com", "iam.googleapis.com")
+    call("services", "enable", "run.googleapis.com", "sqladmin.googleapis.com", "artifactregistry.googleapis.com", "cloudbuild.googleapis.com", "secretmanager.googleapis.com", "aiplatform.googleapis.com", "iam.googleapis.com", "telemetry.googleapis.com", "cloudtrace.googleapis.com", "observability.googleapis.com")
+    trace_buckets = json.loads(call("observability", "buckets", "list", "--location=-", "--format=json", capture=True))
+    if not any(bucket["name"].endswith("/_Trace") for bucket in trace_buckets):
+        call("observability", "settings", "update", "--location=global", f"--default-storage-location={region}", "--update-mask=default_storage_location")
+        call("observability", "buckets", "create", "_Trace", "--location", region)
     if not exists("artifacts", "repositories", "describe", "eximion", "--location", region):
         call("artifacts", "repositories", "create", "eximion", "--repository-format=docker", "--location", region)
     service_account = f"eximion-backend@{project}.iam.gserviceaccount.com"
     if not exists("iam", "service-accounts", "describe", service_account):
         call("iam", "service-accounts", "create", "eximion-backend", "--display-name=Eximion backend")
-    for role in ["roles/aiplatform.user", "roles/cloudsql.client"]:
+    for role in ["roles/aiplatform.user", "roles/cloudsql.client", "roles/telemetry.tracesWriter", "roles/serviceusage.serviceUsageConsumer"]:
         call("projects", "add-iam-policy-binding", project, f"--member=serviceAccount:{service_account}", f"--role={role}", "--condition=None", "--format=none")
     if not exists("sql", "instances", "describe", "eximion-db"):
         call("sql", "instances", "create", "eximion-db", "--database-version=POSTGRES_17", "--edition=enterprise", "--tier=db-f1-micro", "--region", region, "--storage-size=10", "--storage-type=SSD", "--availability-type=zonal", "--backup-start-time=03:00", "--deletion-protection")
@@ -79,7 +83,7 @@ def deploy(project, region, model, model_location):
     frontend_image = f"{image_root}/frontend:{revision}"
     call("builds", "submit", str(ROOT / "backend"), "--tag", backend_image)
     secrets_arg = "DATABASE_URL=eximion-database-url:latest,AUTHOR_API_KEY=eximion-author-key:latest"
-    env_arg = f"GOOGLE_CLOUD_PROJECT={project},GOOGLE_CLOUD_LOCATION={model_location},GEMINI_MODEL={model}"
+    env_arg = f"GOOGLE_CLOUD_PROJECT={project},GOOGLE_CLOUD_LOCATION={model_location},GEMINI_MODEL={model},TRACE_EXPORT_ENABLED=true,CLOUD_REGION={region}"
     call("run", "jobs", "deploy", "eximion-migrate", "--image", backend_image, "--region", region, "--service-account", service_account, "--set-cloudsql-instances", connection, "--set-secrets", secrets_arg, "--command=sh", "--args=^@^-c@alembic upgrade head && python -m app.seed", "--max-retries=0", "--task-timeout=300s", "--execute-now", "--wait")
     call("run", "deploy", "eximion-backend", "--image", backend_image, "--region", region, "--service-account", service_account, "--set-cloudsql-instances", connection, "--set-secrets", secrets_arg, "--set-env-vars", env_arg, "--allow-unauthenticated", "--port=8080", "--memory=512Mi", "--cpu=1", "--min=0", "--max=2", "--concurrency=20", "--timeout=90s")
     backend_url = call("run", "services", "describe", "eximion-backend", "--region", region, "--format=value(status.url)", capture=True)

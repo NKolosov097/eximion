@@ -27,6 +27,8 @@ class DeploymentSafetyTests(unittest.TestCase):
             command = args[1:]
             if command[:3] == ["billing", "projects", "describe"]:
                 output = '{"billingEnabled": true}'
+            elif command[:3] == ["observability", "buckets", "list"]:
+                output = '[{"name": "projects/test-project/locations/europe-west3/buckets/_Trace"}]'
             elif command[:3] == ["sql", "users", "list"]:
                 output = '[{"name": "eximion"}]'
             elif command[:3] == ["sql", "instances", "describe"]:
@@ -41,6 +43,8 @@ class DeploymentSafetyTests(unittest.TestCase):
                 deployment.deploy("test-project", "europe-west3", "model", "eu")
             self.assertFalse((Path(temporary) / ".local/cloud-secrets.json").exists())
             self.assertFalse(any(command[:3] == ["sql", "users", "create"] for command in mutations))
+            self.assertFalse(any(command[:3] == ["observability", "buckets", "create"] for command in mutations))
+            self.assertFalse(any(command[:3] == ["observability", "settings", "update"] for command in mutations))
 
     def test_cloud_errors_do_not_echo_sensitive_arguments(self):
         failure = subprocess.CalledProcessError(1, ["gcloud", "--password", "sensitive-value"])

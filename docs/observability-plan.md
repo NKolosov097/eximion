@@ -1,4 +1,4 @@
-﻿# E2E selectors and backend observability
+# E2E selectors and backend observability
 
 ## Specification
 
@@ -19,8 +19,16 @@ Local runs retain correlated JSON logs without requiring Google credentials. Clo
 
 - [x] Inspect existing implementation and establish scope.
 - [x] Save specification, plan and ownership before implementation.
-- [ ] Add selectors and selector tests.
-- [ ] Finalize exporter configuration and implement backend instrumentation.
-- [ ] Verify functional tests and sensitive-data exclusion.
+- [x] Add selectors and selector tests.
+- [x] Finalize exporter configuration and implement backend instrumentation.
+- [x] Verify functional tests and sensitive-data exclusion.
 - [ ] Deploy applications and verify E2E selectors, logs and actual exported spans.
 - [ ] Record commands, evidence and limitations; commit verified changes.
+
+## Export contract
+
+Use the standard OpenTelemetry OTLP/gRPC exporter with ADC to telemetry.googleapis.com:443. TRACE_EXPORT_ENABLED=true enables cloud export; local runs default to logs and active trace contexts only. GOOGLE_CLOUD_PROJECT identifies the destination, CLOUD_REGION identifies the app region, and K_REVISION supplies the deployed version. Enable telemetry.googleapis.com and cloudtrace.googleapis.com; grant the backend runtime roles/telemetry.tracesWriter and roles/serviceusage.serviceUsageConsumer. Emit Cloud Logging trace/span correlation fields.
+
+End request spans after dependency teardown, then perform a bounded exporter flush while the final response body is held. The transport deadline must also be bounded. Keep Cloud Run min instances and request-based CPU settings unchanged. Operational logs include export failures without sensitive exception text. Do not claim cloud verification based only on a trace ID in logs.
+
+References: [Google OTLP migration/authentication](https://docs.cloud.google.com/stackdriver/docs/instrumentation/migrate-to-otlp-endpoints), [Cloud Trace ingestion troubleshooting](https://docs.cloud.google.com/trace/docs/troubleshooting). OTLP-ingested spans require Trace Explorer/Observability Analytics rather than legacy Trace API read methods.

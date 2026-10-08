@@ -41,3 +41,7 @@ Cloud SQL remains billable while provisioned even when Cloud Run scales to zero.
 ## CI/CD
 
 GitHub `verify` workflow runs PostgreSQL tests, contract drift, frontend tests/build and Docker builds. Deployment is a reproducible operator command rather than a workflow holding persistent cloud keys. The remote repository was supplied by its owner; this project does not create public repositories. For automated deployment later, use GitHub OIDC Workload Identity Federation instead of service-account JSON keys.
+
+## Tracing
+
+The backend runtime exports OpenTelemetry spans through the Telemetry API using its existing service identity. The deployment script enables trace ingestion and grants `roles/telemetry.tracesWriter` plus `roles/serviceusage.serviceUsageConsumer`. Structured stdout logs are collected by Cloud Run. See [observability.md](observability.md) for correlation, verification and delivery limits.

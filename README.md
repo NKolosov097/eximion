@@ -60,3 +60,5 @@ One command regenerates both `docs/openapi.json` and `frontend/src/lib/api.gener
 - `docs`: specification, contract, plan, commands/results, cloud runbook and limitations.
 
 See [deployment](docs/deployment.md), [LLM evaluation](docs/llm.md), [actual progress](docs/progress.md), and [API contract](docs/api-contract.md). Cloud success is recorded only after deployment and live verification.
+
+Stable E2E selectors are documented in [docs/e2e-selectors.md](docs/e2e-selectors.md). Backend tracing, safe JSON logs and Cloud Trace inspection are documented in [docs/observability.md](docs/observability.md).
