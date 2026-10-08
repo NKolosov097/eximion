@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "checks": [
+    {
+      "check": "nul_attempt",
+      "status": 422,
+      "trace_id": "85444f9479334d10a3e0761c1b7611bf",
+      "cors": true
+    },
+    {
+      "check": "short_source",
+      "status": 422,
+      "trace_id": "58d7cd6692df42db9f6214988866bb36",
+      "cors": true
+    },
+    {
+      "check": "nul_case",
+      "status": 422,
+      "trace_id": "9ed938a15ca84448b3423c68a20df996",
+      "cors": true
+    }
+  ],
+  "stored_validation_logs": {
+    "count": 6,
+    "status": 422,
+    "severity": "WARNING"
+  }
+}

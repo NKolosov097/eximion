@@ -31,7 +31,8 @@ After verified fixes, run three independent Astra code reviews and a separate As
 - [x] Diagnose console warning using source and browser evidence.
 - [x] Complete independent assignment-coverage review.
 - [x] Complete three independent Astra reviews after fixes and address confirmed issues.
-- [ ] Verify local and cloud workflows/traces; record evidence and commit/push changes.
+- [x] Verify local and cloud workflows/traces; record evidence and commit changes.
+- [ ] Publish commits and confirm hosted split CI (awaiting explicit approval after automatic review rejection).
 
 ## Review-driven clarification
 
