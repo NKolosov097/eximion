@@ -76,3 +76,13 @@ Route loading can be brief or absent when a navigation resolves immediately. Tes
 ## Verification
 
 `frontend/src/components/forms.test.tsx` uses selectors during extraction, review, failure recovery and attempt submission, and checks that input selectors still identify labelled controls. `frontend/src/components/pages.test.tsx` verifies navigation destinations, server-rendered public fields, repeated symptoms, loading, error retry and not-found states. Run `npm test`, `npm run typecheck` and `npm run build` from `frontend/`.
+
+
+For the real deployed browser workflow, run from the repository root (Chrome required):
+
+```sh
+npm install --prefix .local/browser-check --no-save playwright@1.64.0
+node scripts/browser-smoke.cjs
+```
+
+The script reads deployment URLs and the private `.local/cloud-secrets.json` author key, exercises real extraction/review/save/attempts using stable selectors, checks mobile overflow, and saves `docs/cloud-browser-check.json`. It never prints the key. It creates a synthetic case in the deployed database. Optional `FRONTEND_CHECK_URL` selects the other frontend URL alias.
