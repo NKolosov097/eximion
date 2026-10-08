@@ -46,6 +46,47 @@ class DeploymentSafetyTests(unittest.TestCase):
             self.assertFalse(any(command[:3] == ["observability", "buckets", "create"] for command in mutations))
             self.assertFalse(any(command[:3] == ["observability", "settings", "update"] for command in mutations))
 
+    def test_frontend_build_failure_preserves_existing_backend_cors(self):
+        backend_env = {"CORS_ORIGINS": "https://existing-frontend.run.app", "EXISTING_SETTING": "keep"}
+        backend_deploys = []
+
+        def fake_run(args, **kwargs):
+            command = args[1:]
+            output = ""
+            if command[:3] == ["billing", "projects", "describe"]:
+                output = '{"billingEnabled": true}'
+            elif command[:3] == ["observability", "buckets", "list"]:
+                output = '[{"name":"projects/test-project/locations/europe-west3/buckets/_Trace"}]'
+            elif command[:3] == ["sql", "users", "list"]:
+                output = '[{"name":"eximion"}]'
+            elif command[:3] == ["sql", "instances", "describe"]:
+                output = "test-project:europe-west3:eximion-db"
+            elif command[:3] == ["run", "deploy", "eximion-backend"]:
+                backend_deploys.append(command)
+                if "--set-env-vars" in command:
+                    backend_env.clear()
+                    flag = "--set-env-vars"
+                else:
+                    flag = "--update-env-vars"
+                backend_env.update(item.split("=", 1) for item in command[command.index(flag) + 1].split(","))
+            elif command[:3] == ["run", "services", "describe"]:
+                output = "https://existing-backend.run.app"
+            elif command[:2] == ["builds", "submit"] and "--config" in command:
+                raise subprocess.CalledProcessError(1, args)
+            return subprocess.CompletedProcess(args, 0, output)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / ".local").mkdir()
+            (root / ".local/cloud-secrets.json").write_text(json.dumps({"project": "test-project", "db_password": "test-password", "author_api_key": "test-key"}))
+            with patch.object(deployment, "ROOT", root), patch.object(deployment, "find_gcloud", return_value="gcloud"), patch.object(deployment.subprocess, "run", side_effect=fake_run), patch.object(deployment.subprocess, "check_output", return_value="reviewed"):
+                with self.assertRaisesRegex(SystemExit, "builds submit failed"):
+                    deployment.deploy("test-project", "europe-west3", "model", "eu")
+        self.assertEqual(len(backend_deploys), 1)
+        self.assertEqual(backend_env["CORS_ORIGINS"], "https://existing-frontend.run.app")
+        self.assertEqual(backend_env["EXISTING_SETTING"], "keep")
+        self.assertEqual(backend_env["TRACE_EXPORT_ENABLED"], "true")
+
     def test_cloud_errors_do_not_echo_sensitive_arguments(self):
         failure = subprocess.CalledProcessError(1, ["gcloud", "--password", "sensitive-value"])
         with patch.object(deployment, "find_gcloud", return_value="gcloud"), patch.object(deployment.subprocess, "run", side_effect=failure):

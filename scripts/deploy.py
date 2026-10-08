@@ -85,7 +85,7 @@ def deploy(project, region, model, model_location):
     secrets_arg = "DATABASE_URL=eximion-database-url:latest,AUTHOR_API_KEY=eximion-author-key:latest"
     env_arg = f"GOOGLE_CLOUD_PROJECT={project},GOOGLE_CLOUD_LOCATION={model_location},GEMINI_MODEL={model},TRACE_EXPORT_ENABLED=true,CLOUD_REGION={region}"
     call("run", "jobs", "deploy", "eximion-migrate", "--image", backend_image, "--region", region, "--service-account", service_account, "--set-cloudsql-instances", connection, "--set-secrets", secrets_arg, "--command=sh", "--args=^@^-c@alembic upgrade head && python -m app.seed", "--max-retries=0", "--task-timeout=300s", "--execute-now", "--wait")
-    call("run", "deploy", "eximion-backend", "--image", backend_image, "--region", region, "--service-account", service_account, "--set-cloudsql-instances", connection, "--set-secrets", secrets_arg, "--set-env-vars", env_arg, "--allow-unauthenticated", "--port=8080", "--memory=512Mi", "--cpu=1", "--min=0", "--max=2", "--concurrency=20", "--timeout=90s")
+    call("run", "deploy", "eximion-backend", "--image", backend_image, "--region", region, "--service-account", service_account, "--set-cloudsql-instances", connection, "--set-secrets", secrets_arg, "--update-env-vars", env_arg, "--allow-unauthenticated", "--port=8080", "--memory=512Mi", "--cpu=1", "--min=0", "--max=2", "--concurrency=20", "--timeout=90s")
     backend_url = call("run", "services", "describe", "eximion-backend", "--region", region, "--format=value(status.url)", capture=True)
     call("builds", "submit", str(ROOT / "frontend"), "--config", str(ROOT / "scripts/cloudbuild-frontend.yaml"), f"--substitutions=_API_URL={backend_url},_IMAGE={frontend_image}")
     frontend_account = f"eximion-frontend@{project}.iam.gserviceaccount.com"
