@@ -2,7 +2,9 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+
+from app.telemetry import operation
 
 
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
@@ -12,6 +14,14 @@ ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1
 
 class RequestModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def trace_validation(cls, data, handler):
+        if cls.__name__ in {"ClinicalCaseCreate", "ExtractionRequest", "AttemptCreate"}:
+            with operation("request.validate"):
+                return handler(data)
+        return handler(data)
 
 
 class ClinicalCaseDraft(RequestModel):

@@ -8,6 +8,7 @@ from google.auth.exceptions import GoogleAuthError
 from google.genai import types
 
 from app.schemas import ClinicalCaseDraft
+from app.telemetry import operation, traced
 
 
 class ExtractionUnavailable(Exception):
@@ -35,6 +36,7 @@ The author will review and edit the draft before publication.
 """
 
 
+@traced("gemini.extract")
 async def extract_case(source_text: str) -> ClinicalCaseDraft:
     project = os.getenv("GOOGLE_CLOUD_PROJECT", "").strip()
     location = os.getenv("GOOGLE_CLOUD_LOCATION", "").strip()
@@ -53,17 +55,19 @@ async def extract_case(source_text: str) -> ClinicalCaseDraft:
                     retry_options=types.HttpRetryOptions(attempts=1),
                 ),
             ).aio as client:
-                response = await client.models.generate_content(
-                    model=model,
-                    contents=json.dumps({"source_text": source_text}, ensure_ascii=False),
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_INSTRUCTION,
-                        response_mime_type="application/json",
-                        response_json_schema=ClinicalCaseDraft.model_json_schema(),
-                        max_output_tokens=2048,
-                    ),
-                )
-                return ClinicalCaseDraft.model_validate_json(response.text or "")
+                with operation("gemini.request"):
+                    response = await client.models.generate_content(
+                        model=model,
+                        contents=json.dumps({"source_text": source_text}, ensure_ascii=False),
+                        config=types.GenerateContentConfig(
+                            system_instruction=SYSTEM_INSTRUCTION,
+                            response_mime_type="application/json",
+                            response_json_schema=ClinicalCaseDraft.model_json_schema(),
+                            max_output_tokens=2048,
+                        ),
+                    )
+                with operation("gemini.output.validate"):
+                    return ClinicalCaseDraft.model_validate_json(response.text or "")
     except (TimeoutError, httpx.TimeoutException):
         raise ExtractionTimeout("Extraction timed out.") from None
     except GoogleAuthError:
