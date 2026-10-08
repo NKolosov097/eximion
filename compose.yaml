@@ -24,6 +24,11 @@ services:
       GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-europe-west3}
       GEMINI_MODEL: ${GEMINI_MODEL:-}
       PORT: "8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/ready', timeout=3)"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
     ports:
       - "127.0.0.1:8000:8080"
     depends_on:
@@ -41,6 +46,7 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 volumes:
   postgres-data:
