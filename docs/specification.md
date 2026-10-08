@@ -1,4 +1,4 @@
-﻿# Eximion specification
+﻿# Clinical Cases - Test Assignment for Eximion: Specification
 
 Build an English-language educational clinical-case application using synthetic data only. This is not a medical diagnostic system.
 

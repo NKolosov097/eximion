@@ -7,7 +7,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: {
     default: `${messages.appName} · ${messages.descriptor}`,
-    template: "%s · Eximion",
+    template: `%s · ${messages.appName}`,
   },
   description: messages.homeDescription,
 };
@@ -31,7 +31,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
             data-testid="nav-home"
           >
             <span className="brand-mark" aria-hidden="true">
-              e
+              c
             </span>
             {messages.appName}
             <span className="brand-description">{messages.descriptor}</span>

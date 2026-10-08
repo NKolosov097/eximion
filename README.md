@@ -1,4 +1,4 @@
-# Eximion
+# Clinical Cases - Test Assignment for Eximion
 
 A small educational clinical-case application: FastAPI, PostgreSQL, Next.js/TypeScript, and Gemini structured extraction. **Synthetic data only. Not a medical diagnostic system.**
 

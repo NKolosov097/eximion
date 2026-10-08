@@ -19,7 +19,7 @@ from app.schemas import AttemptCreate, AttemptResult, ClinicalCase, ClinicalCase
 from app.telemetry import TelemetryMiddleware, set_request_error, traced
 
 
-app = FastAPI(title="Eximion API", version="1.0.0")
+app = FastAPI(title="Clinical Cases API - Test Assignment for Eximion", version="1.0.0")
 CORS_ORIGINS = [origin.strip() for origin in os.environ.get("CORS_ORIGINS", "http://localhost:3000").split(",") if origin.strip()]
 app.add_middleware(
     CORSMiddleware,

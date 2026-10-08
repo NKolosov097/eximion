@@ -1,8 +1,8 @@
 export const messages = {
-  appName: "Eximion",
+  appName: "Clinical Cases",
   skip: "Skip to content",
-  home: "Eximion home",
-  descriptor: "Clinical learning lab",
+  home: "Clinical Cases home",
+  descriptor: "Test assignment for Eximion",
   disclaimer:
     "For education only. Use synthetic cases. This is not a medical diagnostic system.",
   create: "Create a case",
