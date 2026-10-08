@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, text
+from sqlalchemy import or_, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -119,9 +119,16 @@ def list_clinical_cases(
     session: SessionDependency,
     page: Annotated[int, Query(ge=1, le=1_000_000)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    q: Annotated[str, Query(max_length=200, pattern=r"^[^\x00]*$", description="Case-insensitive literal search in public titles and vignettes.")] = "",
 ):
+    query = select(ClinicalCaseRecord)
+    if term := q.strip():
+        query = query.where(or_(
+            ClinicalCaseRecord.title.icontains(term, autoescape=True),
+            ClinicalCaseRecord.vignette.icontains(term, autoescape=True),
+        ))
     records = session.scalars(
-        select(ClinicalCaseRecord)
+        query
         .order_by(ClinicalCaseRecord.created_at.desc(), ClinicalCaseRecord.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size + 1)

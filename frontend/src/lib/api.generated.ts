@@ -376,6 +376,8 @@ export interface operations {
             query?: {
                 page?: number;
                 page_size?: number;
+                /** @description Case-insensitive literal search in public titles and vignettes. */
+                q?: string;
             };
             header?: never;
             path?: never;

@@ -99,3 +99,5 @@ Failed comparisons write actual/diff PNGs and a report under `.local/screenshot-
 The header links to Home, Cases, Create case and API Docs (a new tab). The footer links to the author's GitHub profile.
 
 Unsaved author content is kept only in memory. Links and reload/close warn before leaving; same-document browser Back also warns in browsers with the Navigation API. Legacy browsers without that API cannot cancel SPA history traversal. No draft or author key is written to browser storage.
+
+All cases supports case-insensitive literal search in case titles and descriptions. Submit Search (or Enter), use Clear search to reset, and share the resulting q URL; pagination keeps the filter. Hidden grading answers are never searched.

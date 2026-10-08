@@ -276,6 +276,7 @@ export function AuthorForm() {
             className="button full-width"
             type="submit"
             data-testid="author-extract-submit"
+            aria-busy={pending === "extract"}
           >
             {pending === "extract"
               ? messages.extracting

@@ -245,6 +245,20 @@
               "default": 20,
               "title": "Page Size"
             }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "pattern": "^[^\\x00]*$",
+              "description": "Case-insensitive literal search in public titles and vignettes.",
+              "default": "",
+              "title": "Q"
+            },
+            "description": "Case-insensitive literal search in public titles and vignettes."
           }
         ],
         "responses": {

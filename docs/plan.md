@@ -44,3 +44,8 @@ Tests after implementation, without mandatory test-first. Backend integration us
 - [x] Add active navigation and case-specific metadata with a shared loader.
 - [x] Pin screenshot container, serve existing fonts locally, review Linux baselines and enable CI artifact uploads.
 - [x] Verify unit/type/build/browser/visual checks, review implementation, push, deploy frontend and verify live behavior.
+
+## Catalog search and author feedback
+- [x] Add validated literal public-text search before pagination; regenerate API contract and test PostgreSQL matching/privacy.
+- [x] Add query-preserving catalog search, review cursor and reduced-motion-aware extraction indicator; verify unit and browser behavior.
+- [ ] Review updated visual baselines, pass CI, deploy both services and verify live.

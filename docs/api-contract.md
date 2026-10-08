@@ -15,7 +15,7 @@ Pydantic is authoritative. Reject unknown request fields. Trim strings before va
 ## Routes
 - POST /api/v1/clinical-cases/extract: ExtractionRequest -> 200 ExtractionResponse; 422 validation, 502 extraction_failed, 503 extraction_unavailable, 504 extraction_timeout.
 - POST /api/v1/clinical-cases: ClinicalCaseCreate -> 201 ClinicalCase; Location /api/v1/clinical-cases/{id}; 422 validation, 503 database_unavailable.
-- GET /api/v1/clinical-cases: 200 ClinicalCasePage; page integer 1..1000000 (default 1), page_size integer 1..100 (default 20). Order created_at DESC, id DESC. Empty pages return items [] and has_more false; 422 invalid pagination, 503 database_unavailable. Public fields only.
+- GET /api/v1/clinical-cases: 200 ClinicalCasePage; page integer 1..1000000 (default 1), page_size integer 1..100 (default 20), optional q string (max 200 characters, no U+0000). Trim q; empty means all cases. Case-insensitive literal substring matching on public title/vignette only, before pagination; `%` and `_` are literal, and hidden answers are excluded. Order created_at DESC, id DESC. Empty pages return items [] and has_more false; 422 invalid pagination/search, 503 database_unavailable. Public fields only.
 - GET /api/v1/clinical-cases/{id}: 200 ClinicalCase; 404 case_not_found, 422 malformed UUID, 503 database_unavailable.
 - POST /api/v1/clinical-cases/{id}/attempts: AttemptCreate -> 201 AttemptResult; 404 case_not_found, 422 validation, 503 database_unavailable.
 - GET /health: 200 {"status":"ok"}. GET /ready: verify database; 200 {"status":"ok"} or 503 database_unavailable.

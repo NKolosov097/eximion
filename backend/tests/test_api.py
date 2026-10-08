@@ -171,3 +171,29 @@ def test_catalog_order_pagination_and_hidden_answers(postgres, client, monkeypat
 @pytest.mark.parametrize("query", ["page=0", "page=-1", "page=1000001", "page=x", "page_size=0", "page_size=101"])
 def test_catalog_rejects_invalid_pagination(client, query):
     assert client.get(f"/api/v1/clinical-cases?{query}").status_code == 422
+
+
+def test_catalog_search_is_literal_public_and_paginated(postgres, client):
+    for title, vignette in [("Fever follow-up", "Public note"), ("Unrelated title", "A FEVER started yesterday"), ("Oxygen 98%_room/air", "Unrelated description")]:
+        response = client.post("/api/v1/clinical-cases", json=VALID_CASE | {
+            "title": title, "vignette": vignette,
+            "reference_diagnosis": "hidden-reference", "accepted_answers": ["hidden-synonym"],
+        })
+        assert response.status_code == 201
+    params = {"q": "  fEvEr  ", "page_size": 1}
+    first = client.get("/api/v1/clinical-cases", params=params).json()
+    second = client.get("/api/v1/clinical-cases", params=params | {"page": 2}).json()
+    assert len(first["items"]) == len(second["items"]) == 1
+    assert first["items"][0]["id"] != second["items"][0]["id"]
+    assert first["has_more"] and not second["has_more"]
+    for term in ["%", "_", "/", "%_room/air"]:
+        matches = client.get("/api/v1/clinical-cases", params={"q": term}).json()["items"]
+        assert [item["title"] for item in matches] == ["Oxygen 98%_room/air"]
+    for term in ["missing", "hidden-reference", "hidden-synonym"]:
+        assert client.get("/api/v1/clinical-cases", params={"q": term}).json() == {"items": [], "has_more": False}
+    assert len(client.get("/api/v1/clinical-cases", params={"q": "   "}).json()["items"]) == 3
+
+
+@pytest.mark.parametrize("query", ["x" * 201, "bad\x00query"])
+def test_catalog_rejects_invalid_search(client, query):
+    assert client.get("/api/v1/clinical-cases", params={"q": query}).status_code == 422

@@ -202,3 +202,9 @@ Current implementation: frontend9b33fe2; backendee46085. Final local/cloud/API/t
 - Reviewed all eight Linux images. Source commit 57caae4 passed every job in GitHub Actions run 37803164578, including screenshot-tests; screenshot-results artifact uploaded successfully.
 - Frontend build 473e9afa-ddab-4978-8215-6554807df0cf succeeded. Revision eximion-frontend-00008-jdd serves 100% of traffic using image 57caae4.
 - Live verification passed: real case title, active links, unsaved leave cancellation, replacement cancellation/answer preservation/review reset, locally served fonts returning 200, and 390px layout without overflow or JavaScript errors. Extraction was mocked for this UI check; no Gemini calls or database writes. Backend and migrations were unchanged.
+
+## Catalog search and extraction feedback (2026-10-08)
+- Added public title/vignette search across the full catalog before pagination, using escaped case-insensitive literal matching. Query length/NUL validation and tests prevent hidden-answer search and wildcard expansion. Regenerated OpenAPI and TypeScript contract.
+- Added a query-preserving search form, Enter submission, Clear search and distinct no-result state. Review checkbox/label use pointer when enabled and not-allowed while disabled. The extraction button shows a rotating indicator with aria-busy and the existing status; reduced motion disables rotation.
+- Verified 77 backend tests against PostgreSQL, mypy, 43 frontend tests, TypeScript and production builds. Reviewed the changed desktop/mobile catalog and author screenshots; all eight comparisons passed in the pinned Linux container.
+- Browser regression and deployment results follow below.

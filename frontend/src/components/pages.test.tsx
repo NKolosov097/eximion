@@ -152,18 +152,37 @@ describe("page selector contract", () => {
 
 
 describe("case catalog", () => {
-  it("renders saved case links and paginates without caching", async () => {
+  it("trims and sends the search query and preserves it through pagination", async () => {
+    const query = "  Dry & cough 🚑  ";
     const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       items: [{ id: DEMO_CASE_ID, title: "Saved case", vignette: "Synthetic vignette", age_years: null }],
       has_more: true,
     })));
     vi.stubGlobal("fetch", fetch);
-    render(await CatalogPage({ searchParams: Promise.resolve({ page: "2" }) }));
+    render(await CatalogPage({ searchParams: Promise.resolve({ page: "2", q: query }) }));
     expect(screen.getByRole("link", { name: "Saved case" }).getAttribute("href")).toBe(`/clinical-cases/${DEMO_CASE_ID}`);
-    expect(screen.getByRole("link", { name: messages.previous }).getAttribute("href")).toBe("/clinical-cases?page=1");
-    expect(screen.getByRole("link", { name: messages.next }).getAttribute("href")).toBe("/clinical-cases?page=3");
+    const previous = new URL(screen.getByRole("link", { name: messages.previous }).getAttribute("href")!, "https://example.test");
+    const next = new URL(screen.getByRole("link", { name: messages.next }).getAttribute("href")!, "https://example.test");
+    expect(previous.searchParams.get("page")).toBe("1");
+    expect(previous.searchParams.get("q")).toBe(query.trim());
+    expect(next.searchParams.get("page")).toBe("3");
+    expect(next.searchParams.get("q")).toBe(query.trim());
+    expect((screen.getByLabelText(messages.searchLabel) as HTMLInputElement).value).toBe(query.trim());
+    expect(screen.getByRole("link", { name: messages.clearSearch }).getAttribute("href")).toBe("/clinical-cases");
     expect(screen.getByText(`${messages.age}: ${messages.ageUnknown}`)).toBeTruthy();
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining("?page=2&page_size=20"), expect.objectContaining({ cache: "no-store" }));
+    const requestedUrl = new URL(fetch.mock.calls[0][0]);
+    expect(Object.fromEntries(requestedUrl.searchParams)).toEqual({ page: "2", page_size: "20", q: query.trim() });
+    const search = screen.getByRole("searchbox", { name: messages.searchLabel });
+    expect(search.closest("form")?.getAttribute("action")).toBe("/clinical-cases");
+    expect(search.closest("form")?.getAttribute("method")).not.toBe("post");
+  });
+
+  it("distinguishes no search matches and offers a clear link", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], has_more: false }))));
+    render(await CatalogPage({ searchParams: Promise.resolve({ q: "missing" }) }));
+    expect(screen.getByTestId("catalog-search-empty").textContent).toContain(messages.catalogSearchEmpty);
+    expect(screen.queryByTestId("catalog-empty")).toBeNull();
+    expect(screen.getByRole("link", { name: messages.clearSearch }).getAttribute("href")).toBe("/clinical-cases");
   });
 
   it.each([1, 3])("offers a useful empty state on page %i", async (page) => {
@@ -178,6 +197,13 @@ describe("case catalog", () => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
     await expect(CatalogPage({ searchParams: Promise.resolve({ page }) })).rejects.toThrow("not-found");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it.each([{ q: ["a", "b"] }, { q: "bad\0query" }, { q: String.fromCodePoint(0x1f600).repeat(201) }])("rejects invalid search query before fetching", async ({ q }) => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    await expect(CatalogPage({ searchParams: Promise.resolve({ q }) })).rejects.toThrow("not-found");
     expect(fetch).not.toHaveBeenCalled();
   });
 

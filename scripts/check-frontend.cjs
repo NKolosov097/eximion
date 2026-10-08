@@ -28,18 +28,26 @@ const listen = async (server) => {
   let catalogEmpty = false;
   let holdCatalog = false;
   let releaseCatalog;
+  const catalogRequests = [];
   const api = http.createServer(async (req, res) => {
     requests++;
     const requestPath = new URL(req.url, "http://localhost").pathname;
+    const searchParams = new URL(req.url, "http://localhost").searchParams;
     if (requestPath === `/api/v1/clinical-cases/${id}`) caseFetches++;
+    if (requestPath === "/api/v1/clinical-cases") {
+      catalogRequests.push({ page: searchParams.get("page"), q: searchParams.get("q") });
+    }
     if (holdCatalog && requestPath === "/api/v1/clinical-cases")
       await new Promise((resolve) => { releaseCatalog = resolve; });
     res.writeHead(healthy ? 200 : 503, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify(
         healthy
-          ? (new URL(req.url, "http://localhost").pathname === "/api/v1/clinical-cases"
-            ? { items: catalogEmpty ? [] : [clinicalCase], has_more: !catalogEmpty && new URL(req.url, "http://localhost").searchParams.get("page") === "1" }
+          ? (requestPath === "/api/v1/clinical-cases"
+            ? {
+                items: catalogEmpty || searchParams.get("q") === "no-such-case" ? [] : [clinicalCase],
+                has_more: !catalogEmpty && searchParams.get("q") !== "no-such-case" && searchParams.get("page") === "1",
+              }
             : clinicalCase)
           : { error: { message: "Temporary test failure." } },
       ),
@@ -147,6 +155,27 @@ const listen = async (server) => {
     await page.getByTestId("nav-all-cases").click();
     await page.getByTestId("case-catalog").waitFor();
     assert.equal(await page.getByTestId("nav-all-cases").getAttribute("aria-current"), "page");
+    await page.getByRole("link", { name: "Next page", exact: true }).click();
+    await page.waitForURL((url) => url.searchParams.get("page") === "2");
+    await page.getByRole("searchbox", { name: "Search titles and descriptions" }).fill("dry cough");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.waitForURL((url) => url.pathname === "/clinical-cases" && url.searchParams.get("q") === "dry cough");
+    assert.deepEqual(catalogRequests.at(-1), { page: "1", q: "dry cough" }, "Search starts on page one and reaches the API.");
+    const nextSearchPage = new URL(await page.getByRole("link", { name: "Next page", exact: true }).getAttribute("href"), origin);
+    assert.equal(nextSearchPage.searchParams.get("q"), "dry cough");
+    await page.setViewportSize({ width: 320, height: 900 });
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "Search fits mobile width.");
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.getByRole("link", { name: "Next page", exact: true }).click();
+    await page.waitForURL((url) => url.searchParams.get("page") === "2" && url.searchParams.get("q") === "dry cough");
+    await page.getByRole("link", { name: "Previous page", exact: true }).click();
+    await page.waitForURL((url) => url.searchParams.get("page") === "1" && url.searchParams.get("q") === "dry cough");
+    await page.getByRole("searchbox", { name: "Search titles and descriptions" }).fill("no-such-case");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.getByTestId("catalog-search-empty").waitFor();
+    await page.getByRole("link", { name: "Clear search", exact: true }).click();
+    await page.waitForURL((url) => url.pathname === "/clinical-cases" && !url.searchParams.has("q"));
+    await page.getByTestId("catalog-case").waitFor();
     await page.getByTestId("nav-create-case").click();
     await page.getByTestId("author-source-text").waitFor();
     assert.equal(await page.getByTestId("nav-create-case").getAttribute("aria-current"), "page");
@@ -158,6 +187,8 @@ const listen = async (server) => {
 
     const browserRequests = [];
     let attemptUnavailable = false;
+    let holdExtraction = false;
+    let releaseExtraction;
     await page.route("**/api/v1/**", async (route) => {
       const request = route.request();
       browserRequests.push({
@@ -165,7 +196,10 @@ const listen = async (server) => {
         body: request.postDataJSON(),
       });
       let body = clinicalCase;
-      if (request.url().endsWith("/extract")) body = { draft, warnings: [] };
+      if (request.url().endsWith("/extract")) {
+        if (holdExtraction) await new Promise((resolve) => { releaseExtraction = resolve; });
+        body = { draft, warnings: [] };
+      }
       const isAttempt = request.url().endsWith("/attempts");
       if (isAttempt) {
         const correct = request.postDataJSON().diagnosis.trim().toLowerCase() !== "unrelated diagnosis";
@@ -287,6 +321,8 @@ const listen = async (server) => {
     await page.getByTestId("author-source-text").fill(emoji.repeat(20000));
     await page.getByTestId("author-extract-submit").click();
     await page.getByTestId("author-draft-title").waitFor();
+    assert.equal(await page.getByTestId("author-review-confirmation").evaluate((el) => getComputedStyle(el).cursor), "pointer");
+    assert.equal(await page.getByTestId("author-review-confirmation").locator("xpath=..").evaluate((el) => getComputedStyle(el).cursor), "pointer");
     assert.equal([...browserRequests.at(-1).body.source_text].length, 20000);
     assert.equal(await page.getByTestId("author-reference-diagnosis").inputValue(), "");
     await page.getByTestId("author-reference-diagnosis").fill("Influenza");
@@ -297,8 +333,21 @@ const listen = async (server) => {
     await page.getByTestId("author-extract-submit").click();
     assert.equal(browserRequests.length, beforeCancelledExtraction, "Canceling re-extraction sends no request.");
     assert.equal(await page.getByTestId("author-draft-title").inputValue(), "Manual title");
+    holdExtraction = true;
+    await page.emulateMedia({ reducedMotion: "no-preference" });
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByTestId("author-extract-submit").click();
+    const extractButton = page.getByTestId("author-extract-submit");
+    await page.waitForFunction(() => document.querySelector('[data-testid="author-extract-submit"]')?.getAttribute("aria-busy") === "true");
+    assert(await extractButton.isDisabled(), "Extraction disables its inputs while pending.");
+    assert.equal(await page.locator(".source-panel button[aria-busy='true'] span").evaluate((el) => getComputedStyle(el).animationName), "extract-spin");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    assert.equal(await page.locator(".source-panel button[aria-busy='true'] span").evaluate((el) => getComputedStyle(el).animationName), "none");
+    assert.equal(await page.getByRole("status").last().textContent(), "Extracting draft…");
+    assert.equal(await page.getByTestId("author-review-confirmation").isDisabled(), true);
+    assert.equal(await page.getByTestId("author-review-confirmation").evaluate((el) => getComputedStyle(el).cursor), "not-allowed");
+    holdExtraction = false;
+    releaseExtraction?.();
     await page.getByTestId("author-answers-review-hint").waitFor();
     assert.equal(await page.getByTestId("author-draft-title").inputValue(), draft.title);
     assert.equal(await page.getByTestId("author-reference-diagnosis").inputValue(), "Influenza");
@@ -433,7 +482,9 @@ const listen = async (server) => {
       unsaved_author_form_navigation_guard_and_key_exemption: true,
       current_header_section_and_case_metadata: true,
       catalog_navigation_pagination_empty_retry: true,
+      catalog_search_reset_pagination_no_results_and_clear: true,
       catalog_skeleton_transition_and_reduced_motion: true,
+      extraction_spinner_reduced_motion_and_disabled_cursor: true,
       production_retry_new_api_request: true,
       keyboard_skip_and_submit: true,
       unicode_boundaries: true,

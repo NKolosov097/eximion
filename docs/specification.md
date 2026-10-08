@@ -35,3 +35,9 @@ Verify extraction validation/failures, author editing/save, server rendering, ex
 - Mark exactly one active header section with aria-current: Home, Cases (including details), or Create a case.
 - Render the real case title in tab metadata, sharing the request-scoped case loader with the page.
 - Compare eight desktop/mobile screenshots in CI using a pinned Linux/Chromium image and locally served fonts. Commit reviewed baselines; upload actual/diff artifacts on failures. Never update baselines in CI.
+
+## Catalog search and author feedback
+- Optional q (up to 200 characters, no NUL) searches public titles and vignettes across all cases by a trimmed, case-insensitive literal substring. Empty q lists all; percent/underscore remain literal. Hidden answers never influence results. Filter before stable pagination.
+- All cases has a labelled search form and clear action. Search submits to page 1, URL retains q, pagination preserves it, and no-match results are distinct from an empty catalog.
+- Review checkbox and label show pointer when enabled, not-allowed when disabled.
+- Extract case displays an animated generation indicator while the request is pending, retaining disabled controls and accessible status. No layout shift; reduced-motion preference disables motion.
