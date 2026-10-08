@@ -1,0 +1,45 @@
+name: verify
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_USER: eximion
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: eximion_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U eximion -d eximion_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://eximion:ci-only-password@localhost:5432/eximion_test
+      DATABASE_URL: postgresql+psycopg://eximion:ci-only-password@localhost:5432/eximion_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.12.4'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.19.0'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: uv sync --project backend --frozen
+      - run: npm ci
+        working-directory: frontend
+      - run: uv run --project backend python -m pytest backend/tests
+      - run: uv run --project backend python scripts/generate-contract.py
+      - run: git diff --exit-code -- docs/openapi.json frontend/src/lib/api.generated.ts
+      - run: npm run typecheck && npm test && npm run build
+        working-directory: frontend
+      - run: docker compose config --quiet
+      - run: docker build -t eximion-backend backend
+      - run: docker build -t eximion-frontend --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 frontend
+
