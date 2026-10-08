@@ -14,7 +14,9 @@ export function SiteNav() {
         ? "create"
         : pathname === "/clinical-cases" || pathname.startsWith("/clinical-cases/")
           ? "cases"
-          : "";
+          : pathname === "/analytics"
+            ? "analytics"
+            : "";
   return (
     <nav className="site-nav" aria-label="Main navigation">
       <Link
@@ -40,6 +42,14 @@ export function SiteNav() {
         aria-current={active === "create" ? "page" : undefined}
       >
         {messages.create}
+      </Link>
+      <Link
+        href="/analytics"
+        className="nav-link"
+        data-testid="nav-analytics"
+        aria-current={active === "analytics" ? "page" : undefined}
+      >
+        {messages.navAnalytics}
       </Link>
       <a
         href={`${apiBaseUrl()}/docs`}

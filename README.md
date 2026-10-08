@@ -4,7 +4,7 @@ A small educational clinical-case application: FastAPI, PostgreSQL, Next.js/Type
 
 ## Live application
 
-Open https://eximion-frontend-497115726994.europe-west3.run.app . API documentation: https://eximion-backend-497115726994.europe-west3.run.app/docs . The demo can be solved without an author key. Creation and Gemini extraction require the private author key stored locally in `.local/cloud-secrets.json` (`author_api_key`); never commit or share that file because it also contains database credentials.
+Open https://eximion-frontend-497115726994.europe-west3.run.app . API documentation: https://eximion-backend-497115726994.europe-west3.run.app/docs . The demo can be solved without an author key. Creation, Gemini extraction and private Analytics require the private author key stored locally in `.local/cloud-secrets.json` (`author_api_key`); never commit or share that file because it also contains database credentials.
 
 Both applications and PostgreSQL run in Frankfurt. Gemini uses the EU endpoint. Real extraction, browser authoring, scoring, persistence and mobile layout have been verified; see [deployment metadata](docs/deployment.json) and [verification record](docs/progress.md).
 
@@ -88,7 +88,7 @@ docker build --platform linux/amd64 -f scripts/Dockerfile.screenshots -t clinica
 docker run --rm --ipc=host -v "${PWD}/.local/screenshot-results:/app/.local/screenshot-results" clinical-cases-screenshots
 ```
 
-Eight reviewed baselines in `scripts/screenshots/linux-chromium` cover Home, Cases, a case and the author form on desktop/mobile. After an intentional UI change, generate candidates with the command below, inspect all changed images, then rerun the comparison (rebuild the image to include the reviewed baselines):
+Ten reviewed baselines in `scripts/screenshots/linux-chromium` cover Home, Cases, a case, Analytics and the author form on desktop/mobile. After an intentional UI change, generate candidates with the command below, inspect all changed images, then rerun the comparison (rebuild the image to include the reviewed baselines):
 
 ```powershell
 docker run --rm --ipc=host -v "${PWD}/scripts/screenshots/linux-chromium:/app/scripts/screenshots/linux-chromium" clinical-cases-screenshots node scripts/check-screenshots.cjs --update-baselines
@@ -96,8 +96,10 @@ docker run --rm --ipc=host -v "${PWD}/scripts/screenshots/linux-chromium:/app/sc
 
 Failed comparisons write actual/diff PNGs and a report under `.local/screenshot-results`. GitHub Actions uploads that directory as **screenshot-results** (14-day retention); open the workflow run's Artifacts section to download it. CI never updates baselines. The pinned Playwright PNG decoder is used by this test harness and must be checked when upgrading Playwright.
 
-The header links to Home, Cases, Create case and API Docs (a new tab). The footer links to the author's GitHub profile.
+The header links to Home, Cases, Create case, Analytics and API Docs (a new tab). The footer links to the author's GitHub profile.
 
 Unsaved author content is kept only in memory. Links and reload/close warn before leaving; same-document browser Back also warns in browsers with the Navigation API. Legacy browsers without that API cannot cancel SPA history traversal. No draft or author key is written to browser storage.
 
 All cases supports case-insensitive literal search in case titles and descriptions. Submit Search (or Enter), use Clear search to reset, and share the resulting q URL; pagination keeps the filter. Hidden grading answers are never searched.
+
+Open **Analytics** in the header, enter the Author key and select the last 7, 30 or 90 days. The private dashboard shows cases created, attempts submitted and the percentage of correct answers from existing records. It counts submissions rather than unique people and adds no visitor tracking. See [analytics access and calculations](docs/observability.md#private-application-analytics).

@@ -12,6 +12,7 @@ Selectors are unique within the active page, except `case-symptom` for ordered s
 | `nav-home` | Global brand link to `/` |
 | `nav-all-cases` | Global navigation link to `/clinical-cases` |
 | `nav-create-case` | Global navigation link to `/clinical-cases/new` |
+| `nav-analytics` | Global navigation link to `/analytics` |
 | `home-create-case` | Home hero link to authoring |
 | `home-demo-case-primary` | Home hero link to the demonstration case |
 | `home-demo-case-banner` | Home lower banner link to the same demonstration case |
@@ -101,3 +102,20 @@ For isolated frontend regression checks, first build with `npm run build --prefi
 Pagination navigation is labeled `Case pages`; links are `Previous page` and `Next page`.
 
 Global navigation also exposes `nav-home-link`, `nav-docs` (new tab) and `footer-github`. The brand keeps `nav-home`.
+
+## Private analytics
+
+| Selector | Element / behavior |
+| --- | --- |
+| `analytics-title` | Page heading |
+| `analytics-dashboard` | Author access form and results |
+| `analytics-key` | Required password input; memory only |
+| `analytics-days` | Last 7/30/90 days selector |
+| `analytics-load` | Submit button; disabled while loading |
+| `analytics-initial` | Invitation to enter a key and load metrics |
+| `analytics-skeletons` | Three pending metric cards with accessible status |
+| `analytics-cards` | Authorized aggregate results |
+| `analytics-period-note` | UTC window and repeat-attempt explanation |
+| `analytics-error` | Failed-load alert, with no stale results |
+
+Key or period changes clear results. The form controls are disabled while pending. `frontend/src/components/analytics.test.tsx` covers request privacy, clearing and empty rates; browser checks also exercise pending, errors and recovery. Visual fixtures use synthetic aggregate numbers and a dummy key.

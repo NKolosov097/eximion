@@ -295,6 +295,87 @@
         }
       }
     },
+    "/api/v1/analytics": {
+      "get": {
+        "summary": "Get Analytics",
+        "operationId": "get_analytics_api_v1_analytics_get",
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "7",
+                "30",
+                "90"
+              ],
+              "type": "string",
+              "default": "30",
+              "title": "Days"
+            }
+          },
+          {
+            "name": "x-author-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Author-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsSummary"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/clinical-cases/{id}": {
       "get": {
         "summary": "Get Clinical Case",
@@ -428,6 +509,68 @@
   },
   "components": {
     "schemas": {
+      "AnalyticsSummary": {
+        "properties": {
+          "days": {
+            "type": "integer",
+            "enum": [
+              7,
+              30,
+              90
+            ],
+            "title": "Days"
+          },
+          "start_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start At"
+          },
+          "end_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End At"
+          },
+          "case_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Case Count"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Attempt Count"
+          },
+          "correct_attempt_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Correct Attempt Count"
+          },
+          "correct_percentage": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correct Percentage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "days",
+          "start_at",
+          "end_at",
+          "case_count",
+          "attempt_count",
+          "correct_attempt_count",
+          "correct_percentage"
+        ],
+        "title": "AnalyticsSummary"
+      },
       "AttemptCreate": {
         "properties": {
           "diagnosis": {

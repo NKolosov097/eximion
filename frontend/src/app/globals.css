@@ -490,18 +490,29 @@ textarea {
 textarea {
   resize: vertical;
 }
+select {
+  width: 100%;
+  border: 1px solid #819589;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
 input::placeholder,
 textarea::placeholder {
   color: #637368;
 }
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   border-color: var(--green);
   outline: 3px solid #e0eee5;
   outline-offset: 0;
 }
 input:disabled,
-textarea:disabled {
+textarea:disabled,
+select:disabled {
   background: #f5f7f4;
 }
 .field-hint {
@@ -1160,6 +1171,84 @@ textarea:focus-visible {
   width: 90px;
   height: 24px;
   margin: 20px 0 0;
+}
+
+.analytics-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+  padding-bottom: 60px;
+}
+.analytics-controls {
+  display: grid;
+  gap: 9px;
+}
+.analytics-controls .section-heading {
+  margin-bottom: 8px;
+}
+.analytics-controls label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.analytics-controls input,
+.analytics-controls select {
+  margin-bottom: 10px;
+}
+.analytics-results {
+  min-width: 0;
+}
+.analytics-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.analytics-card h2 {
+  min-height: 48px;
+  font-size: 15px;
+}
+.analytics-value {
+  font-family: "Manrope", Arial, sans-serif;
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1.15;
+  letter-spacing: -1px;
+  font-weight: 750;
+  margin: 12px 0 6px;
+  overflow-wrap: anywhere;
+}
+.analytics-hint,
+.analytics-period {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+.analytics-period {
+  margin-top: 14px;
+}
+.analytics-message {
+  font-size: 14px;
+  margin: 0;
+}
+.analytics-value-skeleton {
+  width: 48%;
+  height: 40px;
+  margin: 10px 0 14px;
+}
+.analytics-hint-skeleton {
+  width: 76%;
+}
+@media (max-width: 900px) {
+  .analytics-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .analytics-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .analytics-card h2 {
+    min-height: 0;
+  }
 }
 @keyframes skeleton-pulse {
   50% { opacity: 0.45; }

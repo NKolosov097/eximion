@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
 import pytest
@@ -71,6 +71,93 @@ def test_author_key_guards_writes_and_never_echoes_input(client, monkeypatch):
     response = client.post("/api/v1/clinical-cases", json=VALID_CASE | {"private_source": "DO_NOT_ECHO"}, headers={"X-Author-Key": "test-author-key"})
     assert response.status_code == 422
     assert "DO_NOT_ECHO" not in response.text
+
+
+def test_analytics_requires_configured_author_key(client, monkeypatch):
+    response = client.get("/api/v1/analytics")
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "author_unavailable"
+    monkeypatch.setenv("AUTHOR_API_KEY", "analytics-secret")
+    for headers in [{}, {"X-Author-Key": "wrong"}]:
+        response = client.get("/api/v1/analytics", headers=headers)
+        assert response.status_code == 401
+        assert "analytics-secret" not in response.text
+
+
+def test_analytics_aggregates_utc_window_and_older_case_attempts(postgres, client, monkeypatch):
+    from app import main
+
+    engine, _ = postgres
+    fixed_end = datetime(2026, 10, 8, 12, tzinfo=timezone.utc)
+    monkeypatch.setattr(main, "utc_now", lambda: fixed_end)
+    monkeypatch.setenv("AUTHOR_API_KEY", "analytics-secret")
+    window_start = fixed_end - timedelta(days=30)
+    older_case_id = UUID(int=4)
+    with Session(engine) as session:
+        cases = []
+        for identifier, created_at in [
+            (1, window_start),
+            (2, fixed_end),
+            (3, fixed_end + timedelta(seconds=1)),
+            (4, window_start - timedelta(days=1)),
+        ]:
+            record = build_case(ClinicalCaseCreate(**VALID_CASE))
+            record.id = UUID(int=identifier)
+            record.created_at = created_at
+            session.add(record)
+            cases.append(record)
+        session.flush()
+        for case_index, created_at, correct in [
+            (3, window_start, True),  # An old case still contributes its in-window attempt.
+            (3, window_start - timedelta(seconds=1), True),
+            (3, fixed_end - timedelta(days=1), False),
+            (0, fixed_end - timedelta(days=2), False),
+            (0, fixed_end, True),
+            (1, fixed_end + timedelta(seconds=1), True),
+        ]:
+            session.add(ClinicalCaseAttempt(
+                clinical_case_id=cases[case_index].id,
+                diagnosis="private diagnosis that must not be returned",
+                score=100 if correct else 0,
+                is_correct=correct,
+                created_at=created_at,
+            ))
+        session.commit()
+
+    response = client.get("/api/v1/analytics?days=30", headers={"X-Author-Key": "analytics-secret"})
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    result = response.json()
+    assert set(result) == {
+        "days", "start_at", "end_at", "case_count", "attempt_count",
+        "correct_attempt_count", "correct_percentage",
+    }
+    assert result["days"] == 30
+    assert datetime.fromisoformat(result["start_at"]) == window_start
+    assert datetime.fromisoformat(result["end_at"]) == fixed_end
+    assert result["case_count"] == 1
+    assert result["attempt_count"] == 3
+    assert result["correct_attempt_count"] == 1
+    assert result["correct_percentage"] == 33.3
+    assert "private diagnosis" not in response.text
+    assert str(older_case_id) not in response.text
+
+
+def test_analytics_empty_counts_and_days_validation(postgres, client, monkeypatch):
+    monkeypatch.setenv("AUTHOR_API_KEY", "analytics-secret")
+    headers = {"X-Author-Key": "analytics-secret"}
+    for days in [7, 30, 90]:
+        response = client.get("/api/v1/analytics", params={"days": days}, headers=headers)
+        assert response.status_code == 200
+        assert response.json()["days"] == days
+    empty = client.get("/api/v1/analytics", headers=headers)
+    assert empty.status_code == 200
+    assert empty.json()["case_count"] == 0
+    assert empty.json()["attempt_count"] == 0
+    assert empty.json()["correct_attempt_count"] == 0
+    assert empty.json()["correct_percentage"] is None
+    for days in ["6", "14", "91", "0", "-7", "abc"]:
+        assert client.get("/api/v1/analytics", params={"days": days}, headers=headers).status_code == 422
 
 
 def test_extraction_success_requires_review(client, monkeypatch):

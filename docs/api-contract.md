@@ -7,12 +7,14 @@ Pydantic is authoritative. Reject unknown request fields. Trim strings before va
 - ClinicalCaseCreate: draft fields plus reference_diagnosis required string 1..200; accepted_answers optional array default [] max 20, each string 1..200.
 - ClinicalCase: draft fields plus required id UUID and created_at datetime. Response age_years always present. No reference, alternatives, normalized answers or source text.
 - ClinicalCasePage: items ClinicalCase[] and has_more boolean.
+- AnalyticsSummary: days integer 7, 30 or 90; start_at/end_at UTC datetimes; case_count, attempt_count and correct_attempt_count nonnegative integers; correct_percentage number 0..100 rounded to one decimal, or null when there are no attempts.
 - ExtractionRequest: source_text required string 20..20000.
 - ExtractionResponse: required draft ClinicalCaseDraft and warnings string[]. Always include: Review the draft for accuracy and remove any revealed diagnosis before saving.
 - AttemptCreate: diagnosis required string 1..200.
 - AttemptResult: required id UUID, clinical_case_id UUID, score integer 0 or 100, max_score literal 100, is_correct boolean, feedback string, created_at datetime.
 
 ## Routes
+- GET /api/v1/analytics: 200 AnalyticsSummary; days must be 7, 30 or 90 (default 30). Requires X-Author-Key; 401 missing/invalid key, 503 if AUTHOR_API_KEY is unset or the database is unavailable, 422 invalid period. Always fail closed when the server key is absent. Successful responses use Cache-Control: no-store. Count each record by its own creation timestamp in the rolling UTC interval [start_at, end_at); attempts on older cases are included. Repeated submissions count separately. Return aggregate numbers only, never clinical content, identifiers or diagnoses.
 - POST /api/v1/clinical-cases/extract: ExtractionRequest -> 200 ExtractionResponse; 422 validation, 502 extraction_failed, 503 extraction_unavailable, 504 extraction_timeout.
 - POST /api/v1/clinical-cases: ClinicalCaseCreate -> 201 ClinicalCase; Location /api/v1/clinical-cases/{id}; 422 validation, 503 database_unavailable.
 - GET /api/v1/clinical-cases: 200 ClinicalCasePage; page integer 1..1000000 (default 1), page_size integer 1..100 (default 20), optional q string (max 200 characters, no U+0000). Trim q; empty means all cases. Case-insensitive literal substring matching on public title/vignette only, before pagination; `%` and `_` are literal, and hidden answers are excluded. Order created_at DESC, id DESC. Empty pages return items [] and has_more false; 422 invalid pagination/search, 503 database_unavailable. Public fields only.

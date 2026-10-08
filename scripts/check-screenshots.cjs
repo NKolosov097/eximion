@@ -88,22 +88,34 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
       await page.route('**/api/v1/clinical-cases/extract', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ draft, warnings: [] }) }));
+      await page.route('**/api/v1/analytics?*', route => {
+        assert.equal(route.request().headers()['x-author-key'], 'screenshot-author-key');
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+          days: 30, start_at: '2026-09-08T12:00:00Z', end_at: '2026-10-08T12:00:00Z',
+          case_count: 12, attempt_count: 9, correct_attempt_count: 6, correct_percentage: 66.7,
+        }) });
+      });
       for (const [name, route, ready] of [
         ['home', '/', 'home-create-case'],
         ['catalog', '/clinical-cases', 'catalog-case'],
         ['case', `/clinical-cases/${id}`, 'case-title'],
+        ['analytics', '/analytics', 'analytics-initial'],
         ['author', '/clinical-cases/new', 'author-source-text'],
       ]) {
         await page.goto(origin + route);
         await page.getByTestId(ready).waitFor();
-        if (name === 'author') {
+        if (name === 'analytics') {
+          await page.getByTestId('analytics-key').fill('screenshot-author-key');
+          await page.getByTestId('analytics-load').click();
+          await page.getByTestId('analytics-cards').waitFor();
+        } else if (name === 'author') {
           await page.getByTestId('author-source-text').fill(draft.vignette);
           await page.getByTestId('author-extract-submit').click();
           await page.getByTestId('author-draft-title').waitFor();
           await page.getByTestId('author-reference-diagnosis').fill('Influenza');
           await page.getByTestId('author-accepted-alternatives').fill('Flu');
         }
-        for (const selector of ['nav-home-link', 'nav-all-cases', 'nav-create-case', 'nav-docs', 'footer-github'])
+        for (const selector of ['nav-home-link', 'nav-all-cases', 'nav-create-case', 'nav-analytics', 'nav-docs', 'footer-github'])
           assert(await page.getByTestId(selector).isVisible(), `Missing ${selector} on ${name}/${size}`);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${name}/${size} overflows`);
         await page.evaluate(async () => { await document.fonts.ready; document.activeElement?.blur(); window.scrollTo(0, 0); });

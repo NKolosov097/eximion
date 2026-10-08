@@ -210,3 +210,9 @@ Current implementation: frontend9b33fe2; backendee46085. Final local/cloud/API/t
 - Expanded E2E passed: search/Enter/page reset/query-preserving pagination/no-match/clear, delayed extraction animation, reduced motion, pending controls and checkbox cursors. Source d6ba31f passed all eight CI jobs in run 37806194020.
 - Backend build 832a0932-3c38-4d3c-b866-51e411941ee7 and frontend build d391aec2-1e68-47ee-806f-821a5e5a9edd succeeded. Revisions eximion-backend-00007-nnd and eximion-frontend-00009-z2j each serve 100% traffic. No migration was needed.
 - Live checks passed for actual catalog filtering, no-match and clear, mobile overflow, pending animation, reduced motion and checkbox pointer, without JavaScript errors. Extraction was mocked to hold the loading state; no Gemini calls or production database writes.
+
+## Minimal private analytics - local verification
+
+Added a fail-closed author-key aggregate API and `/analytics` dashboard with 7/30/90-day UTC windows, three metrics, empty/error/loading states, and memory-only credentials. Counts use existing records; no database migration or dependency was added.
+
+Validation: 80 backend tests passed against dedicated PostgreSQL test schemas; mypy clean; 45 frontend tests, TypeScript, production build and browser E2E passed. Reviewed all ten Linux/Chromium desktop/mobile screenshots and passed exact comparison. The initial catalog capture differed from two identical later renders by 19 border pixels (one color level); the reviewed reproducible capture is the baseline. Contract files regenerated. Independent auth/privacy/window review found no remaining defects. Cloud rollout and authenticated live verification are pending.

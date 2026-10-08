@@ -1,21 +1,22 @@
 import os
 import secrets
-from typing import Annotated, Any, Literal
+from datetime import timedelta
+from typing import Annotated, Any, Literal, cast
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import or_, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app import llm
 from app.cases import build_case, normalize_diagnosis, public_case
 from app.database import commit, get_session
-from app.models import ClinicalCaseAttempt, ClinicalCaseRecord
-from app.schemas import AttemptCreate, AttemptResult, ClinicalCase, ClinicalCaseCreate, ClinicalCasePage, ErrorResponse, ExtractionRequest, ExtractionResponse
+from app.models import ClinicalCaseAttempt, ClinicalCaseRecord, utc_now
+from app.schemas import AnalyticsSummary, AttemptCreate, AttemptResult, ClinicalCase, ClinicalCaseCreate, ClinicalCasePage, ErrorResponse, ExtractionRequest, ExtractionResponse
 from app.telemetry import TelemetryMiddleware, set_request_error, traced
 
 
@@ -64,6 +65,17 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
 
 @traced("author.authorize")
 def require_author(x_author_key: Annotated[str | None, Header()] = None):
+    check_author_key(x_author_key)
+
+
+@traced("author.authorize")
+def require_configured_author(x_author_key: Annotated[str | None, Header()] = None):
+    if not os.environ.get("AUTHOR_API_KEY"):
+        raise APIError(503, "author_unavailable", "Author access is not configured.")
+    check_author_key(x_author_key)
+
+
+def check_author_key(x_author_key: str | None):
     expected = os.environ.get("AUTHOR_API_KEY")
     if expected and (x_author_key is None or not secrets.compare_digest(x_author_key.encode(), expected.encode())):
         raise APIError(401, "unauthorized", "A valid author key is required.")
@@ -136,6 +148,39 @@ def list_clinical_cases(
     return ClinicalCasePage(
         items=[public_case(record) for record in records[:page_size]],
         has_more=len(records) > page_size,
+    )
+
+
+@app.get("/api/v1/analytics", response_model=AnalyticsSummary, dependencies=[Depends(require_configured_author)], responses={401: {"model": ErrorResponse}, 503: {"model": ErrorResponse}})
+@traced("analytics.read")
+def get_analytics(
+    response: Response,
+    session: SessionDependency,
+    days: Annotated[Literal["7", "30", "90"], Query()] = "30",
+):
+    period_days = cast(Literal[7, 30, 90], int(days))
+    end_at = utc_now()
+    start_at = end_at - timedelta(days=period_days)
+    in_period = (ClinicalCaseRecord.created_at >= start_at, ClinicalCaseRecord.created_at < end_at)
+    attempt_period = (ClinicalCaseAttempt.created_at >= start_at, ClinicalCaseAttempt.created_at < end_at)
+    case_count = session.scalar(select(func.count()).select_from(ClinicalCaseRecord).where(*in_period)) or 0
+    attempt_counts = session.execute(
+        select(
+            func.count().label("attempt_count"),
+            func.count().filter(ClinicalCaseAttempt.is_correct.is_(True)).label("correct_attempt_count"),
+        ).select_from(ClinicalCaseAttempt).where(*attempt_period)
+    ).one()
+    attempt_count = attempt_counts.attempt_count
+    correct_attempt_count = attempt_counts.correct_attempt_count
+    response.headers["Cache-Control"] = "no-store"
+    return AnalyticsSummary(
+        days=period_days,
+        start_at=start_at,
+        end_at=end_at,
+        case_count=case_count,
+        attempt_count=attempt_count,
+        correct_attempt_count=correct_attempt_count,
+        correct_percentage=round(correct_attempt_count * 100 / attempt_count, 1) if attempt_count else None,
     )
 
 

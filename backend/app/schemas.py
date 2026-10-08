@@ -70,6 +70,16 @@ class AttemptResult(BaseModel):
     created_at: datetime
 
 
+class AnalyticsSummary(BaseModel):
+    days: Literal[7, 30, 90]
+    start_at: datetime
+    end_at: datetime
+    case_count: Annotated[int, Field(ge=0)]
+    attempt_count: Annotated[int, Field(ge=0)]
+    correct_attempt_count: Annotated[int, Field(ge=0)]
+    correct_percentage: Annotated[float, Field(ge=0, le=100)] | None
+
+
 class ErrorDetail(BaseModel):
     code: str
     message: str

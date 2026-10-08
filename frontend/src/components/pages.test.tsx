@@ -62,6 +62,7 @@ describe("page selector contract", () => {
       ["footer-github", "https://github.com/NKolosov097"],
       ["nav-all-cases", "/clinical-cases"],
       ["nav-create-case", "/clinical-cases/new"],
+      ["nav-analytics", "/analytics"],
     ]) {
       expect(
         document
@@ -90,6 +91,7 @@ describe("page selector contract", () => {
       ["/clinical-cases", "nav-all-cases"],
       [`/clinical-cases/${DEMO_CASE_ID}`, "nav-all-cases"],
       ["/clinical-cases/new", "nav-create-case"],
+      ["/analytics", "nav-analytics"],
     ]) {
       currentPath.value = routePath;
       const view = render(<SiteNav />);

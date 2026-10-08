@@ -187,15 +187,34 @@ const listen = async (server) => {
 
     const browserRequests = [];
     let attemptUnavailable = false;
+    let analyticsUnavailable = false;
+    let holdAnalytics = false;
+    let releaseAnalytics;
+    let signalAnalyticsRouteEntered;
     let holdExtraction = false;
     let releaseExtraction;
     await page.route("**/api/v1/**", async (route) => {
       const request = route.request();
       browserRequests.push({
         path: new URL(request.url()).pathname,
-        body: request.postDataJSON(),
+        url: request.url(),
+        headers: request.headers(),
+        body: request.method() === "POST" ? request.postDataJSON() : undefined,
       });
       let body = clinicalCase;
+      let status = 200;
+      if (request.url().includes("/api/v1/analytics")) {
+        if (holdAnalytics) {
+          signalAnalyticsRouteEntered?.();
+          await new Promise((resolve) => { releaseAnalytics = resolve; });
+        }
+        body = analyticsUnavailable
+          ? { error: { message: "A valid author key is required." } }
+          : { days: Number(new URL(request.url()).searchParams.get("days")),
+              start_at: "2026-10-01T12:00:00Z", end_at: "2026-10-08T12:00:00Z",
+              case_count: 4, attempt_count: 3, correct_attempt_count: 1, correct_percentage: 33.3 };
+        status = analyticsUnavailable ? 401 : 200;
+      }
       if (request.url().endsWith("/extract")) {
         if (holdExtraction) await new Promise((resolve) => { releaseExtraction = resolve; });
         body = { draft, warnings: [] };
@@ -209,15 +228,52 @@ const listen = async (server) => {
               feedback: correct ? "Accepted synthetic answer." : "Incorrect synthetic answer." };
       }
       await route.fulfill({
-        status: isAttempt && attemptUnavailable ? 503 : 200,
+        status: isAttempt && attemptUnavailable ? 503 : status,
         contentType: "application/json",
         body: JSON.stringify(body),
       });
     });
+    await page.getByTestId("nav-analytics").click();
+    await page.getByTestId("analytics-initial").waitFor();
+    assert.equal(await page.getByTestId("nav-analytics").getAttribute("aria-current"), "page");
+    assert.equal(await page.getByTestId("analytics-cards").count(), 0, "The public analytics page starts without metrics.");
+    assert.equal(await page.getByTestId("analytics-key").getAttribute("type"), "password");
+    await page.getByTestId("analytics-key").fill("browser-only-author-key");
+    const analyticsRouteEntered = new Promise((resolve) => { signalAnalyticsRouteEntered = resolve; });
+    holdAnalytics = true;
+    await page.getByTestId("analytics-load").click();
+    await page.getByTestId("analytics-skeletons").waitFor();
+    await analyticsRouteEntered;
+    assert.equal(await page.getByTestId("analytics-skeletons").locator(".analytics-card").count(), 3);
+    assert.equal(await page.getByTestId("analytics-key").isDisabled(), true);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    assert.equal(await page.locator(".analytics-value-skeleton").first().evaluate((el) => getComputedStyle(el).animationName), "none");
+    holdAnalytics = false;
+    releaseAnalytics?.();
+    await page.getByTestId("analytics-cards").waitFor();
+    const analyticsRequest = browserRequests.find((item) => item.path === "/api/v1/analytics");
+    assert(analyticsRequest);
+    assert.equal(new URL(analyticsRequest.url).searchParams.get("days"), "30");
+    assert.equal(analyticsRequest.headers["x-author-key"], "browser-only-author-key");
+    assert.equal(new URL(page.url()).pathname, "/analytics", "The key never appears in the URL.");
+    assert.equal(await page.evaluate(() => localStorage.length), 0, "The key is not persisted in local storage.");
+    assert.equal(await page.getByTestId("analytics-period-note").textContent().then((text) => text.includes("Repeated submissions count as separate attempts.")), true);
+    await page.getByTestId("analytics-days").selectOption("7");
+    await page.getByTestId("analytics-initial").waitFor();
+    assert.equal(await page.getByTestId("analytics-cards").count(), 0, "Changing period clears previously loaded metrics.");
+    analyticsUnavailable = true;
+    await page.getByTestId("analytics-load").click();
+    await page.getByTestId("analytics-error").waitFor();
+    assert.equal(await page.getByTestId("analytics-cards").count(), 0, "Failures leave no stale results visible.");
+    analyticsUnavailable = false;
+    await page.getByTestId("analytics-load").click();
+    await page.getByTestId("analytics-cards").waitFor();
+    await page.goto(`${origin}/clinical-cases/${id}`);
+    await page.getByTestId("case-title").waitFor();
     await page.getByTestId("attempt-diagnosis").fill("   ");
     await page.getByTestId("attempt-submit").click();
     await page.getByTestId("attempt-error").waitFor();
-    assert.equal(browserRequests.length, 0, "Invalid answers never reach the API.");
+    assert.equal(browserRequests.filter((item) => item.path.endsWith("/attempts")).length, 0, "Invalid answers never reach the API.");
     assert.equal(await page.getByTestId("attempt-diagnosis").getAttribute("aria-invalid"), "true");
     for (const [answer, title, score] of [
       ["  FLU  ", "Accepted diagnosis", "100 / 100"],
@@ -430,7 +486,7 @@ const listen = async (server) => {
     for (const width of [320, 390, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `Catalog overflow at ${width}px`);
-      for (const selector of ["nav-home-link", "nav-all-cases", "nav-create-case", "nav-docs", "footer-github"]) {
+      for (const selector of ["nav-home-link", "nav-all-cases", "nav-create-case", "nav-analytics", "nav-docs", "footer-github"]) {
         assert(await page.getByTestId(selector).isVisible(), `${selector} visible at ${width}px`);
       }
     }
@@ -476,6 +532,7 @@ const listen = async (server) => {
       header_home_cases_create_and_brand_navigation: true,
       favicon_available: true,
       docs_new_tab_icon_noopener_and_footer_github: true,
+      analytics_private_key_period_states_and_aggregate_display: true,
       attempt_validation_correct_incorrect_error_recovery: true,
       author_review_required_and_reset_on_edit: true,
       reextract_confirmation_answers_preserved_and_review_reset: true,

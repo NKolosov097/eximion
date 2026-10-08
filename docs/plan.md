@@ -49,3 +49,8 @@ Tests after implementation, without mandatory test-first. Backend integration us
 - [x] Add validated literal public-text search before pagination; regenerate API contract and test PostgreSQL matching/privacy.
 - [x] Add query-preserving catalog search, review cursor and reduced-motion-aware extraction indicator; verify unit and browser behavior.
 - [x] Review updated visual baselines, pass CI, deploy both services and verify live.
+
+## Minimal private analytics
+- [x] Implement protected aggregate endpoint/schema with UTC periods; add database tests and regenerate contract.
+- [x] Add author-key dashboard, three metrics, periods/loading/errors and header navigation; add focused UI/E2E coverage.
+- [ ] Review implementation and visual baselines, pass CI, deploy both services and verify authenticated live reads.
