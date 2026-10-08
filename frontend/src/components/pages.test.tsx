@@ -97,19 +97,20 @@ describe("page selector contract", () => {
   });
 
   it("keeps loading, retry, and not-found states accessible through stable selectors", () => {
-    const reset = vi.fn();
+    const reload = vi.fn();
+    vi.stubGlobal("window", { location: { reload } });
     const loading = render(<Loading />);
     expect(screen.getByTestId("case-loading").getAttribute("role")).toBe(
       "status",
     );
     loading.unmount();
-    const error = render(<CaseError reset={reset} />);
+    const error = render(<CaseError />);
     expect(screen.getByTestId("case-load-error")).toBeTruthy();
     expect(
       screen.getByTestId("case-load-error-message").getAttribute("role"),
     ).toBe("alert");
     fireEvent.click(screen.getByTestId("case-load-retry"));
-    expect(reset).toHaveBeenCalledOnce();
+    expect(reload).toHaveBeenCalledOnce();
     error.unmount();
     render(<NotFound />);
     expect(screen.getByTestId("case-not-found")).toBeTruthy();

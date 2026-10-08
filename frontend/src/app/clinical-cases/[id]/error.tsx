@@ -2,7 +2,7 @@
 
 import { messages } from "@/lib/messages";
 
-export default function CaseError({ reset }: { reset: () => void }) {
+export default function CaseError() {
   return (
     <div className="status-page" data-testid="case-load-error">
       <p className="eyebrow">{messages.appName}</p>
@@ -10,7 +10,11 @@ export default function CaseError({ reset }: { reset: () => void }) {
       <p role="alert" data-testid="case-load-error-message">
         {messages.unavailable}
       </p>
-      <button className="button" onClick={reset} data-testid="case-load-retry">
+      <button
+        className="button"
+        onClick={() => window.location.reload()}
+        data-testid="case-load-retry"
+      >
         {messages.retry}
       </button>
     </div>

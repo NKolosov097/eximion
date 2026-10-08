@@ -1,21 +1,20 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { useRouter } from "next/navigation";
-import { displayError, request } from "@/lib/api";
+import { ApiError, displayError, request } from "@/lib/api";
 import { messages } from "@/lib/messages";
 import type {
   ClinicalCase,
   ClinicalCaseCreate,
   ClinicalCaseDraft,
   ExtractionResponse,
+  ExtractionRequest,
 } from "@/lib/types";
+import { lines } from "@/lib/text";
+import { listError, textError } from "@/lib/validation";
 
-const lines = (value: string) =>
-  value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
+type AuthorPendingState = "extract" | "save" | null;
 
 export function AuthorForm() {
   const router = useRouter();
@@ -27,7 +26,9 @@ export function AuthorForm() {
   const [alternatives, setAlternatives] = useState("");
   const [reviewed, setReviewed] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [pending, setPending] = useState<"extract" | "save" | null>(null);
+  const [pending, setPending] = useState<AuthorPendingState>(null);
+  const [sourceInvalid, setSourceInvalid] = useState(false);
+  const [saveInvalidField, setSaveInvalidField] = useState("");
   const [extractError, setExtractError] = useState("");
   const [saveError, setSaveError] = useState("");
 
@@ -36,53 +37,78 @@ export function AuthorForm() {
     setReviewed(false);
   }
 
-  async function extract(event: FormEvent<HTMLFormElement>) {
+  async function extract(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+    const validation = textError(source, 20, 20000, false);
+    setSourceInvalid(Boolean(validation));
+    if (validation) {
+      setExtractError(validation);
+      event.currentTarget
+        .querySelector<HTMLTextAreaElement>("#source-text")
+        ?.focus();
+      return;
+    }
     setPending("extract");
     setExtractError("");
     setReviewed(false);
+    const body: ExtractionRequest = { source_text: source };
     try {
       const result = await request<ExtractionResponse>(
         "/api/v1/clinical-cases/extract",
         {
           method: "POST",
           headers: { "X-Author-Key": authorKey },
-          body: JSON.stringify({ source_text: source }),
+          body: JSON.stringify(body),
         },
       );
       setDraft(result.draft);
       setSymptoms(result.draft.symptoms.join("\n"));
       setWarnings(result.warnings);
       setSaveError("");
+      setSaveInvalidField("");
     } catch (error) {
       setExtractError(displayError(error));
+      setSourceInvalid(error instanceof ApiError && error.status === 422);
     } finally {
       setPending(null);
     }
   }
 
-  async function save(event: FormEvent<HTMLFormElement>) {
+  async function save(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaveError("");
-    if (!draft || !reviewed) {
-      setSaveError(messages.reviewRequired);
-      return;
-    }
+    if (!draft) return;
     const symptomList = lines(symptoms);
     const acceptedAnswers = lines(alternatives);
-    if (
-      symptomList.length < 1 ||
-      symptomList.length > 20 ||
-      symptomList.some((item) => [...item].length > 200)
-    ) {
-      setSaveError(messages.invalidList);
-      return;
-    }
-    if (
-      acceptedAnswers.length > 20 ||
-      acceptedAnswers.some((item) => [...item].length > 200)
-    ) {
-      setSaveError(messages.invalidAlternatives);
+    const validation = [
+      ["case-title", textError(draft.title, 1, 120)],
+      ["case-vignette", textError(draft.vignette, 1, 8000)],
+      ["case-symptoms", listError(symptomList, 1, messages.invalidList)],
+      [
+        "case-age",
+        event.currentTarget.querySelector<HTMLInputElement>("#case-age")
+          ?.validity.badInput ||
+        (draft.age_years !== null &&
+          draft.age_years !== undefined &&
+          (!Number.isInteger(draft.age_years) ||
+            draft.age_years < 0 ||
+            draft.age_years > 120))
+          ? messages.invalidAge
+          : "",
+      ],
+      ["reference-diagnosis", textError(reference, 1, 200)],
+      [
+        "accepted-alternatives",
+        listError(acceptedAnswers, 0, messages.invalidAlternatives),
+      ],
+      ["review-confirmation", reviewed ? "" : messages.reviewRequired],
+    ].find(([, message]) => message);
+    setSaveInvalidField(validation?.[0] ?? "");
+    if (validation) {
+      setSaveError(validation[1]);
+      event.currentTarget
+        .querySelector<HTMLElement>(`#${validation[0]}`)
+        ?.focus();
       return;
     }
     setPending("save");
@@ -108,10 +134,12 @@ export function AuthorForm() {
   return (
     <div className="author-layout">
       <form
+        noValidate
         className="panel source-panel"
         data-testid="author-extract-form"
         onSubmit={extract}
         aria-busy={pending === "extract"}
+        aria-describedby={extractError ? "extract-error" : undefined}
       >
         <div className="section-heading">
           <h2>{messages.sourceTitle}</h2>
@@ -125,14 +153,15 @@ export function AuthorForm() {
             value={source}
             onChange={(event) => {
               setSource(event.target.value);
+              setSourceInvalid(false);
+              setExtractError("");
               setReviewed(false);
             }}
             required
-            minLength={20}
-            maxLength={20000}
             rows={10}
             placeholder={messages.sourcePlaceholder}
-            aria-describedby="source-hint"
+            aria-invalid={sourceInvalid}
+            aria-describedby={`source-hint${sourceInvalid ? " extract-error" : ""}`}
           />
           <p id="source-hint" className="field-hint">
             {messages.sourceHint}
@@ -144,8 +173,16 @@ export function AuthorForm() {
             type="password"
             autoComplete="off"
             value={authorKey}
-            onChange={(event) => setAuthorKey(event.target.value)}
-            aria-describedby="key-hint"
+            onChange={(event) => {
+              setAuthorKey(event.target.value);
+              if (extractError === messages.unauthorized) setExtractError("");
+              if (saveError === messages.unauthorized) setSaveError("");
+            }}
+            aria-invalid={
+              extractError === messages.unauthorized ||
+              saveError === messages.unauthorized
+            }
+            aria-describedby={`key-hint${extractError === messages.unauthorized ? " extract-error" : ""}${saveError === messages.unauthorized ? " save-error" : ""}`}
           />
           <p id="key-hint" className="field-hint">
             {messages.keyHint}
@@ -165,6 +202,7 @@ export function AuthorForm() {
         </fieldset>
         {extractError && (
           <p
+            id="extract-error"
             role="alert"
             className="error-message"
             data-testid="author-extract-error"
@@ -173,6 +211,15 @@ export function AuthorForm() {
           </p>
         )}
       </form>
+      <p className="sr-only" role="status">
+        {pending === "extract"
+          ? messages.extracting
+          : pending === "save"
+            ? messages.saving
+            : draft
+              ? messages.draftReady
+              : ""}
+      </p>
       {!draft ? (
         <section className="panel draft-empty" data-testid="author-draft-empty">
           <span className="draft-icon" aria-hidden="true">
@@ -183,10 +230,16 @@ export function AuthorForm() {
         </section>
       ) : (
         <form
+          noValidate
           className="panel draft-panel"
           data-testid="author-save-form"
           onSubmit={save}
           aria-busy={pending === "save"}
+          aria-describedby={saveError ? "save-error" : undefined}
+          onChange={() => {
+            setSaveInvalidField("");
+            setSaveError("");
+          }}
         >
           <fieldset disabled={pending !== null}>
             <div className="section-heading">
@@ -207,18 +260,24 @@ export function AuthorForm() {
             <label htmlFor="case-title">{messages.titleLabel}</label>
             <input
               id="case-title"
+              aria-invalid={saveInvalidField === "case-title"}
+              aria-describedby={
+                saveInvalidField === "case-title" ? "save-error" : undefined
+              }
               data-testid="author-draft-title"
               required
-              maxLength={120}
               value={draft.title}
               onChange={(event) => editDraft({ title: event.target.value })}
             />
             <label htmlFor="case-vignette">{messages.vignetteLabel}</label>
             <textarea
               id="case-vignette"
+              aria-invalid={saveInvalidField === "case-vignette"}
+              aria-describedby={
+                saveInvalidField === "case-vignette" ? "save-error" : undefined
+              }
               data-testid="author-draft-vignette"
               required
-              maxLength={8000}
               rows={5}
               value={draft.vignette}
               onChange={(event) => editDraft({ vignette: event.target.value })}
@@ -228,6 +287,12 @@ export function AuthorForm() {
                 <label htmlFor="case-symptoms">{messages.symptomsLabel}</label>
                 <textarea
                   id="case-symptoms"
+                  aria-invalid={saveInvalidField === "case-symptoms"}
+                  aria-describedby={
+                    saveInvalidField === "case-symptoms"
+                      ? "symptoms-hint save-error"
+                      : "symptoms-hint"
+                  }
                   data-testid="author-draft-symptoms"
                   required
                   rows={4}
@@ -236,7 +301,6 @@ export function AuthorForm() {
                     setSymptoms(event.target.value);
                     setReviewed(false);
                   }}
-                  aria-describedby="symptoms-hint"
                 />
                 <p id="symptoms-hint" className="field-hint">
                   {messages.symptomsHint}
@@ -246,6 +310,12 @@ export function AuthorForm() {
                 <label htmlFor="case-age">{messages.ageLabel}</label>
                 <input
                   id="case-age"
+                  aria-invalid={saveInvalidField === "case-age"}
+                  aria-describedby={
+                    saveInvalidField === "case-age"
+                      ? "age-hint save-error"
+                      : "age-hint"
+                  }
                   data-testid="author-draft-age"
                   type="number"
                   min={0}
@@ -260,7 +330,6 @@ export function AuthorForm() {
                           : Number(event.target.value),
                     })
                   }
-                  aria-describedby="age-hint"
                 />
                 <p id="age-hint" className="field-hint">
                   {messages.ageHint}
@@ -276,9 +345,14 @@ export function AuthorForm() {
             </label>
             <input
               id="reference-diagnosis"
+              aria-invalid={saveInvalidField === "reference-diagnosis"}
+              aria-describedby={
+                saveInvalidField === "reference-diagnosis"
+                  ? "save-error"
+                  : undefined
+              }
               data-testid="author-reference-diagnosis"
               required
-              maxLength={200}
               value={reference}
               onChange={(event) => {
                 setReference(event.target.value);
@@ -290,6 +364,12 @@ export function AuthorForm() {
             </label>
             <textarea
               id="accepted-alternatives"
+              aria-invalid={saveInvalidField === "accepted-alternatives"}
+              aria-describedby={
+                saveInvalidField === "accepted-alternatives"
+                  ? "alternatives-hint save-error"
+                  : "alternatives-hint"
+              }
               data-testid="author-accepted-alternatives"
               rows={3}
               value={alternatives}
@@ -297,7 +377,6 @@ export function AuthorForm() {
                 setAlternatives(event.target.value);
                 setReviewed(false);
               }}
-              aria-describedby="alternatives-hint"
             />
             <p id="alternatives-hint" className="field-hint">
               {messages.alternativesHint}
@@ -305,6 +384,12 @@ export function AuthorForm() {
             <label className="review-check" htmlFor="review-confirmation">
               <input
                 id="review-confirmation"
+                aria-invalid={saveInvalidField === "review-confirmation"}
+                aria-describedby={
+                  saveInvalidField === "review-confirmation"
+                    ? "save-error"
+                    : undefined
+                }
                 data-testid="author-review-confirmation"
                 type="checkbox"
                 checked={reviewed}
@@ -316,6 +401,7 @@ export function AuthorForm() {
             <p className="field-hint">{messages.reviewHint}</p>
             {saveError && (
               <p
+                id="save-error"
                 role="alert"
                 className="error-message"
                 data-testid="author-save-error"

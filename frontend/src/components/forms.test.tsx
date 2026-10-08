@@ -266,3 +266,95 @@ describe("diagnosis submission", () => {
     expect(screen.queryByTestId("attempt-result")).toBeNull();
   });
 });
+
+describe("inline field validation", () => {
+  it("rejects a short trimmed source and focuses its associated error", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AuthorForm />);
+    const source = screen.getByTestId("author-source-text");
+    fireEvent.change(source, { target: { value: "                    a " } });
+    fireEvent.submit(screen.getByTestId("author-extract-form"));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(source.getAttribute("aria-invalid")).toBe("true");
+    expect(source.getAttribute("aria-describedby")).toContain(
+      screen.getByTestId("author-extract-error").id,
+    );
+    expect(document.activeElement).toBe(source);
+  });
+
+  it.each([
+    ["author-draft-title", " "],
+    ["author-draft-vignette", "a\0b"],
+    ["author-draft-symptoms", "a".repeat(201)],
+    ["author-draft-age", "1.5"],
+    ["author-reference-diagnosis", " "],
+    ["author-accepted-alternatives", "a\0b"],
+  ])(
+    "associates save errors with %s and preserves its input",
+    async (selector, value) => {
+      const fetchMock = vi.fn().mockResolvedValue(response(extraction));
+      vi.stubGlobal("fetch", fetchMock);
+      render(<AuthorForm />);
+      await extractDraft();
+      fireEvent.change(screen.getByTestId("author-reference-diagnosis"), {
+        target: { value: "Flu" },
+      });
+      const field = screen.getByTestId(selector) as HTMLInputElement;
+      fireEvent.change(field, { target: { value } });
+      fireEvent.click(screen.getByTestId("author-review-confirmation"));
+      fireEvent.submit(screen.getByTestId("author-save-form"));
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(field.getAttribute("aria-invalid")).toBe("true");
+      expect(field.getAttribute("aria-describedby")).toContain(
+        screen.getByTestId("author-save-error").id,
+      );
+      expect(document.activeElement).toBe(field);
+      expect(field.value).toBe(value);
+    },
+  );
+
+  it("submits full-length emoji answers and rejects NUL without a request", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      response({
+        score: 0,
+        max_score: 100,
+        is_correct: false,
+        feedback: "Try again.",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AttemptForm caseId="case-id" />);
+    const field = screen.getByTestId("attempt-diagnosis");
+    const diagnosis = `  ${String.fromCodePoint(0x1f600).repeat(200)}  `;
+    expect(field.hasAttribute("maxlength")).toBe(false);
+    fireEvent.change(field, { target: { value: diagnosis } });
+    fireEvent.submit(screen.getByTestId("attempt-form"));
+    await screen.findByTestId("attempt-result");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).diagnosis).toBe(
+      diagnosis,
+    );
+    fireEvent.change(field, { target: { value: "a\0b" } });
+    fireEvent.submit(screen.getByTestId("attempt-form"));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(field.getAttribute("aria-describedby")).toContain("attempt-error");
+    expect(document.activeElement).toBe(field);
+  });
+});
+
+it("associates an unauthorized extraction with the author key", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({}, 401)));
+  render(<AuthorForm />);
+  fireEvent.change(screen.getByTestId("author-source-text"), {
+    target: { value: "A synthetic patient has fever and cough." },
+  });
+  fireEvent.submit(screen.getByTestId("author-extract-form"));
+  await screen.findByTestId("author-extract-error");
+  const key = screen.getByTestId("author-key");
+  expect(key.getAttribute("aria-invalid")).toBe("true");
+  expect(key.getAttribute("aria-describedby")).toContain("extract-error");
+  fireEvent.change(key, { target: { value: "corrected-key" } });
+  expect(key.getAttribute("aria-invalid")).toBe("false");
+  expect(screen.queryByTestId("author-extract-error")).toBeNull();
+});

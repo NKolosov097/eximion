@@ -7,11 +7,15 @@ import type { ClinicalCase } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function CasePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+interface CasePageParams {
+  id: string;
+}
+
+interface CasePageProps {
+  params: Promise<CasePageParams>;
+}
+
+export default async function CasePage({ params }: CasePageProps) {
   const { id } = await params;
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)

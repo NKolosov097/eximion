@@ -80,6 +80,11 @@ export const messages = {
   reviewHint: "Editing a field requires you to confirm the review again.",
   save: "Save case",
   saving: "Saving case…",
+  invalidNul: "Remove null characters from this field.",
+  textLength: (min: number, max: number) =>
+    `Enter ${min}-${max.toLocaleString("en-US")} characters after trimming surrounding whitespace.`,
+  invalidAge: "Enter a whole-number age between 0 and 120, or leave it blank.",
+  draftReady: "Draft extracted. Review the fields below.",
   invalidList: "Enter 1–20 symptoms, each containing 1–200 characters.",
   invalidAlternatives:
     "Enter no more than 20 accepted alternatives, each containing 1–200 characters.",

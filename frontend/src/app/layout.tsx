@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { messages } from "@/lib/messages";
@@ -11,9 +12,11 @@ export const metadata: Metadata = {
   description: messages.homeDescription,
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+interface RootLayoutProps {
+  readonly children: ReactNode;
+}
+
+export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
       <body>
@@ -42,7 +45,7 @@ export default function RootLayout({
             <span aria-hidden="true"> ↗</span>
           </Link>
         </header>
-        <main id="main" className="main-shell">
+        <main id="main" tabIndex={-1} className="main-shell">
           {children}
         </main>
         <footer className="site-footer">
