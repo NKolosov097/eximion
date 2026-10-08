@@ -25,3 +25,5 @@ Verify extraction validation/failures, author editing/save, server rendering, ex
 - Header exposes Home, Cases, Create case and API Docs; Docs opens in a new tab with a visible external-link icon and accessible notice.
 - Footer credits Nikita Kolosov with a link to https://github.com/NKolosov097.
 - Browser tests cover navigation and author/learner flows; repeatable screenshot comparisons cover desktop/mobile pages with stable synthetic data. Deploy frontend and backend after validation.
+
+- While the case catalog is loading, show three placeholder cards matching its layout, with a screen-reader status and reduced-motion support; replace them with the fetched results.

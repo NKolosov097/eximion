@@ -1010,3 +1010,24 @@ textarea:focus-visible {
   display: grid;
   gap: 4px;
 }
+
+.skeleton-line {
+  height: 16px;
+  margin-bottom: 12px;
+  border-radius: 6px;
+  background: var(--line);
+  animation: skeleton-pulse 1.6s ease-in-out infinite;
+}
+.skeleton-title {
+  width: 45%;
+  height: 24px;
+  margin-bottom: 24px;
+}
+.skeleton-badge {
+  width: 90px;
+  height: 24px;
+  margin: 20px 0 0;
+}
+@keyframes skeleton-pulse {
+  50% { opacity: 0.45; }
+}

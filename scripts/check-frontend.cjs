@@ -25,8 +25,12 @@ const listen = async (server) => {
   let requests = 0;
   let healthy = false;
   let catalogEmpty = false;
-  const api = http.createServer((req, res) => {
+  let holdCatalog = false;
+  let releaseCatalog;
+  const api = http.createServer(async (req, res) => {
     requests++;
+    if (holdCatalog && new URL(req.url, "http://localhost").pathname === "/api/v1/clinical-cases")
+      await new Promise((resolve) => { releaseCatalog = resolve; });
     res.writeHead(healthy ? 200 : 503, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify(
@@ -298,6 +302,26 @@ const listen = async (server) => {
     }
     await page.getByRole("link", { name: draft.title, exact: true }).click();
     await page.getByTestId("case-title").waitFor();
+    holdCatalog = true;
+    try {
+      await page.goto(origin + "/clinical-cases?page=2", { waitUntil: "commit" });
+      const loading = page.getByTestId("catalog-loading");
+      await loading.waitFor();
+      assert.equal(await loading.locator("li").count(), 3);
+      assert.equal(await loading.getByRole("status").textContent(), "Loading clinical cases...");
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      assert.equal(await loading.locator(".skeleton-line").first().evaluate(el => getComputedStyle(el).animationName), "none");
+      for (const width of [320, 1440]) {
+        await page.setViewportSize({ width, height: 1000 });
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+        await page.screenshot({ path: path.join(root, `.local/catalog-loading-${width}.png`), fullPage: true });
+      }
+    } finally {
+      holdCatalog = false;
+      releaseCatalog?.();
+    }
+    await page.getByTestId("catalog-case").waitFor();
+    assert.equal(await page.getByTestId("catalog-loading").count(), 0);
     catalogEmpty = true;
     await page.goto(`${origin}/clinical-cases`);
     await page.getByTestId("catalog-empty").waitFor();
@@ -320,6 +344,7 @@ const listen = async (server) => {
       attempt_validation_correct_incorrect_error_recovery: true,
       author_review_required_and_reset_on_edit: true,
       catalog_navigation_pagination_empty_retry: true,
+      catalog_skeleton_transition_and_reduced_motion: true,
       production_retry_new_api_request: true,
       keyboard_skip_and_submit: true,
       unicode_boundaries: true,
