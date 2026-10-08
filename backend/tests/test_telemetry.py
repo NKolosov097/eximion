@@ -4,6 +4,7 @@ import logging
 from time import perf_counter, sleep
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
+from uuid import uuid4
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -77,6 +78,8 @@ def test_real_database_parentage_and_content_redaction(postgres, observed):
         attempt = client.post(f"/api/v1/clinical-cases/{case_id}/attempts", json={"diagnosis": secret})
         assert attempt.status_code == 201
         assert attempt.json()["score"] == 100
+        missing = client.get(f"/api/v1/clinical-cases/{uuid4()}")
+        assert missing.status_code == 404
     spans = [span for span in exporter.get_finished_spans() if span.context.trace_id == int(trace_id, 16)]
     server = next(span for span in spans if span.kind == SpanKind.SERVER)
     assert server.parent.span_id == int(parent_id, 16)
@@ -85,6 +88,8 @@ def test_real_database_parentage_and_content_redaction(postgres, observed):
     transaction = next(span for span in spans if span.name == "db.transaction")
     assert any(span.parent.span_id == transaction.context.span_id for span in spans if span.name == "db.query")
     assert "diagnosis.grade" in {span.name for span in exporter.get_finished_spans()}
+    missing_records = [record for record in records if record["trace_id"] == missing.headers["x-trace-id"] and record["operation"] in {"case.load", "case.read"}]
+    assert missing_records and all(record["status"] == 404 and record["severity"] == "WARNING" for record in missing_records)
     records_by_span = {record["span_id"]: record for record in records}
     assert all(f"{span.context.span_id:016x}" in records_by_span for span in spans)
     assert_safe(exporter, records, [secret, "eximion-local-only", "INSERT INTO", "SELECT ", case_id])
@@ -108,6 +113,8 @@ def test_validation_authorization_unmatched_routes_and_cors(observed, monkeypatc
     assert_safe(exporter, records, ["PRIVATE_AUTHOR_123", "PRIVATE_SOURCE_456", "PRIVATE_PATH_789", "PRIVATE_BAD_TRACE_987", "PRIVATE_METHOD_456"])
     assert any(record.get("http.request.method") == "OTHER" for record in records)
     assert any(record.get("error.type") == "APIError" for record in records)
+    auth_records = [record for record in records if record["operation"] == "author.authorize"]
+    assert auth_records and all(record["status"] == 401 and record["severity"] == "WARNING" for record in auth_records)
 
 
 def test_unexpected_error_returns_safe_500_and_never_rethrows_to_server(observed):

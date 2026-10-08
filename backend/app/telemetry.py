@@ -58,7 +58,7 @@ def set_request_error(exc):
 def completion_log(name, span, started, status, error=None, attributes=None):
     context = span.get_span_context()
     record = {
-        "severity": "ERROR" if error or status >= 500 else "INFO",
+        "severity": "ERROR" if status >= 500 else "WARNING" if status >= 400 else "INFO",
         "event": "operation.completed", "operation": name,
         "trace_id": f"{context.trace_id:032x}", "span_id": f"{context.span_id:016x}",
         "duration_ms": round((perf_counter() - started) * 1000, 3), "status": status,
@@ -78,17 +78,21 @@ def completion_log(name, span, started, status, error=None, attributes=None):
 def operation(name, kind=SpanKind.INTERNAL):
     started = perf_counter()
     error = None
+    status = 200
     with tracer.start_as_current_span(name, kind=kind, record_exception=False, set_status_on_exception=False) as span:
         try:
             yield span
         except BaseException as exc:
             error = error_type(exc)
+            candidate = getattr(exc, "status", None)
+            status = 499 if isinstance(exc, asyncio.CancelledError) else candidate if type(candidate) is int and 400 <= candidate <= 599 else 500
             span.set_attribute("error.type", error)
-            span.set_status(Status(StatusCode.ERROR))
+            if status >= 500 or status == 499:
+                span.set_status(Status(StatusCode.ERROR))
             set_request_error(exc)
             raise
         finally:
-            completion_log(name, span, started, 500 if error else 200, error)
+            completion_log(name, span, started, status, error)
 
 
 def traced(name):
