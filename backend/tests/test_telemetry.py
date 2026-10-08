@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 import httpx
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor, SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.sdk.trace.sampling import ALWAYS_ON
 from opentelemetry.trace import SpanKind
@@ -292,3 +292,122 @@ def test_grpc_auth_callback_diagnostics_cannot_leak_credentials(observed, monkey
     assert "PRIVATE_HEADER_789" not in caplog.text
     assert "TraceExportFailure" in caplog.text
     assert_safe(*observed, ["PRIVATE_ADC_123", "PRIVATE_TOKEN_456", "PRIVATE_HEADER_789"])
+
+
+def test_steady_request_arrivals_complete_after_their_export(observed, monkeypatch):
+    monkeypatch.setattr(telemetry, "_export_enabled", True)
+    batches = []
+
+    class HealthyExporter(SpanExporter):
+        def export(self, spans):
+            sleep(0.2)
+            batches.append(spans)
+            return SpanExportResult.SUCCESS
+
+        def shutdown(self):
+            pass
+
+    telemetry.provider.add_span_processor(BatchSpanProcessor(
+        telemetry.AcknowledgingExporter(HealthyExporter()),
+        schedule_delay_millis=30000, max_queue_size=256, max_export_batch_size=256,
+    ))
+
+    async def steady():
+        durations = []
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            async def request():
+                started = perf_counter()
+                response = await client.get("/health")
+                assert response.status_code == 200
+                durations.append(perf_counter() - started)
+
+            tasks = []
+            for index in range(18):
+                tasks.append(asyncio.create_task(request()))
+                await asyncio.sleep(0.1)
+                if index == 8:
+                    assert tasks[0].done(), "First request must finish while traffic continues"
+            await asyncio.gather(*tasks)
+        assert max(durations) < 0.7
+
+    asyncio.run(steady())
+    assert len(batches) >= 2
+    assert sum(len(batch) for batch in batches) == 18
+    assert not telemetry._export_waiters
+
+
+@pytest.mark.parametrize("outcome,error", [
+    (SpanExportResult.FAILURE, "TraceExportFailure"),
+    (RuntimeError("PRIVATE_EXPORT_FAILURE"), "RuntimeError"),
+])
+def test_export_acknowledges_failure_without_exposing_message(observed, monkeypatch, outcome, error):
+    monkeypatch.setattr(telemetry, "_export_enabled", True)
+    delegate = MagicMock()
+    if isinstance(outcome, Exception):
+        delegate.export.side_effect = outcome
+    else:
+        delegate.export.return_value = outcome
+    exporter = telemetry.AcknowledgingExporter(delegate)
+    with telemetry.tracer.start_as_current_span("test") as span:
+        waiter = telemetry.register_export(span)
+    spans = observed[0].get_finished_spans()
+    if isinstance(outcome, Exception):
+        with pytest.raises(RuntimeError):
+            exporter.export(spans)
+    else:
+        assert exporter.export(spans) == outcome
+    assert waiter.result(timeout=1) == error
+    assert not telemetry._export_waiters
+
+
+@pytest.mark.parametrize("cancel", [False, True])
+def test_export_waiter_cleanup_after_timeout_or_cancellation(observed, monkeypatch, cancel):
+    monkeypatch.setattr(telemetry, "_export_enabled", True)
+    monkeypatch.setattr(telemetry, "FLUSH_TIMEOUT_SECONDS", 0.02)
+    monkeypatch.setattr(telemetry.provider, "force_flush", lambda **kwargs: True)
+    with telemetry.tracer.start_as_current_span("test") as span:
+        waiter = telemetry.register_export(span)
+
+    async def wait():
+        task = asyncio.create_task(telemetry.flush_traces(span, waiter))
+        if cancel:
+            await asyncio.sleep(0)
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        else:
+            await task
+
+    asyncio.run(wait())
+    assert not telemetry._export_waiters
+
+
+def test_export_shutdown_releases_waiters_and_disabled_export_registers_none(observed, monkeypatch):
+    delegate = MagicMock()
+    exporter = telemetry.AcknowledgingExporter(delegate)
+    with telemetry.tracer.start_as_current_span("test") as span:
+        assert telemetry.register_export(span) is None
+        monkeypatch.setattr(telemetry, "_export_enabled", True)
+        waiter = telemetry.register_export(span)
+    exporter.shutdown()
+    assert waiter.result(timeout=1) == "TraceExportFailure"
+    assert not telemetry._export_waiters
+    delegate.shutdown.assert_called_once()
+
+
+def test_invalid_input_logs_warning_but_invalid_model_output_logs_error(observed, monkeypatch):
+    from pydantic import ValidationError
+    from app.schemas import ClinicalCaseDraft
+
+    with TestClient(app) as client:
+        response = client.post("/api/v1/clinical-cases/extract", json={"source_text": "short"})
+    assert response.status_code == 422
+    input_records = [record for record in observed[1] if record["operation"] == "request.validate" and record.get("error.type") == "ValidationError"]
+    assert input_records
+    assert all(record["status"] == 422 and record["severity"] == "WARNING" for record in input_records)
+    with pytest.raises(ValidationError):
+        with telemetry.operation("gemini.output.validate"):
+            ClinicalCaseDraft.model_validate({})
+    output_record = observed[1][-1]
+    assert output_record["status"] == 500
+    assert output_record["severity"] == "ERROR"

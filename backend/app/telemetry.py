@@ -1,5 +1,5 @@
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
@@ -10,13 +10,17 @@ import os
 import re
 import threading
 from time import perf_counter
+from typing import Any
+from collections.abc import Iterator, Sequence
+
+from pydantic import ValidationError
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter, SpanExportResult
 from opentelemetry.sdk.trace.sampling import ALWAYS_ON
-from opentelemetry.trace import SpanKind, Status, StatusCode
+from opentelemetry.trace import Span, SpanKind, Status, StatusCode
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from starlette.responses import JSONResponse
 
@@ -29,7 +33,7 @@ provider = TracerProvider(sampler=ALWAYS_ON, resource=Resource({
     "cloud.region": os.getenv("CLOUD_REGION", os.getenv("GOOGLE_CLOUD_LOCATION", "local")),
 }))
 tracer = provider.get_tracer("eximion.backend")
-request_state = ContextVar("telemetry_request_state", default=None)
+request_state: ContextVar[dict[str, str] | None] = ContextVar("telemetry_request_state", default=None)
 logger = logging.getLogger("eximion.operations")
 logger.setLevel(logging.INFO)
 logger.propagate = False
@@ -38,18 +42,20 @@ handler.setFormatter(logging.Formatter("%(message)s"))
 logger.addHandler(handler)
 _flush_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="trace-flush")
 _flush_lock = threading.Lock()
-_flush_future = None
-_flush_generation = 0
+_flush_future: Future[None] | None = None
+_flush_requested = False
+_export_waiters: dict[tuple[int, int], Future[str | None]] = {}
+_export_waiters_lock = threading.Lock()
 _export_enabled = False
 FLUSH_TIMEOUT_SECONDS = 1.5
 
 
-def error_type(exc):
+def error_type(exc: BaseException) -> str:
     name = type(exc).__name__
     return name if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,79}", name) else "Exception"
 
 
-def set_request_error(exc):
+def set_request_error(exc: BaseException) -> None:
     state = request_state.get()
     if state is not None:
         state["error.type"] = error_type(exc)
@@ -75,10 +81,9 @@ def completion_log(name, span, started, status, error=None, attributes=None):
 
 
 @contextmanager
-def operation(name, kind=SpanKind.INTERNAL):
+def operation(name: str, kind: SpanKind = SpanKind.INTERNAL, *, status: int = 200, validation_error_status: int | None = None) -> Iterator[Span]:
     started = perf_counter()
     error = None
-    status = 200
     with tracer.start_as_current_span(name, kind=kind, record_exception=False, set_status_on_exception=False) as span:
         try:
             yield span
@@ -86,6 +91,8 @@ def operation(name, kind=SpanKind.INTERNAL):
             error = error_type(exc)
             candidate = getattr(exc, "status", None)
             status = 499 if isinstance(exc, asyncio.CancelledError) else candidate if type(candidate) is int and 400 <= candidate <= 599 else 500
+            if isinstance(exc, ValidationError) and validation_error_status is not None:
+                status = validation_error_status
             span.set_attribute("error.type", error)
             if status >= 500 or status == 499:
                 span.set_status(Status(StatusCode.ERROR))
@@ -95,17 +102,17 @@ def operation(name, kind=SpanKind.INTERNAL):
             completion_log(name, span, started, status, error)
 
 
-def traced(name):
+def traced(name, *, status=200):
     def decorate(function):
         if inspect.iscoroutinefunction(function):
             @wraps(function)
             async def async_wrapper(*args, **kwargs):
-                with operation(name):
+                with operation(name, status=status):
                     return await function(*args, **kwargs)
             return async_wrapper
         @wraps(function)
         def sync_wrapper(*args, **kwargs):
-            with operation(name):
+            with operation(name, status=status):
                 return function(*args, **kwargs)
         return sync_wrapper
     return decorate
@@ -120,6 +127,47 @@ class SafeTelemetryLogFilter(logging.Filter):
         record.exc_text = None
         record.stack_info = None
         return True
+
+
+class AcknowledgingExporter(SpanExporter):
+    def __init__(self, exporter: SpanExporter):
+        self.exporter = exporter
+
+    def export(self, spans: Sequence[ReadableSpan]) -> SpanExportResult:
+        error: str | None = "TraceExportFailure"
+        try:
+            result = self.exporter.export(spans)
+            if result == SpanExportResult.SUCCESS:
+                error = None
+            return result
+        except Exception as exc:
+            error = error_type(exc)
+            raise
+        finally:
+            with _export_waiters_lock:
+                waiters = [_export_waiters.pop((span.context.trace_id, span.context.span_id), None)
+                           for span in spans if span.context is not None]
+            for waiter in waiters:
+                if waiter is not None:
+                    waiter.set_result(error)
+
+    def shutdown(self) -> None:
+        with _export_waiters_lock:
+            waiters = list(_export_waiters.values())
+            _export_waiters.clear()
+        for waiter in waiters:
+            waiter.set_result("TraceExportFailure")
+        self.exporter.shutdown()
+
+
+def register_export(span: Span) -> Future[str | None] | None:
+    if not _export_enabled:
+        return None
+    context = span.get_span_context()
+    waiter: Future[str | None] = Future()
+    with _export_waiters_lock:
+        _export_waiters[(context.trace_id, context.span_id)] = waiter
+    return waiter
 
 
 def configure_export():
@@ -139,7 +187,7 @@ def configure_export():
         auth = AuthMetadataPlugin(credentials=credentials, request=Request())
         channel_credentials = grpc.composite_channel_credentials(grpc.ssl_channel_credentials(), grpc.metadata_call_credentials(auth))
         exporter = OTLPSpanExporter(endpoint="https://telemetry.googleapis.com:443", credentials=channel_credentials, timeout=1)
-        provider.add_span_processor(BatchSpanProcessor(exporter, max_queue_size=256, max_export_batch_size=256, schedule_delay_millis=1000, export_timeout_millis=1000))
+        provider.add_span_processor(BatchSpanProcessor(AcknowledgingExporter(exporter), max_queue_size=256, max_export_batch_size=256, schedule_delay_millis=1000, export_timeout_millis=1000))
         _export_enabled = True
     except Exception as exc:
         started = perf_counter()
@@ -149,39 +197,41 @@ def configure_export():
             completion_log("telemetry.configure", span, started, 503, error_type(exc))
 
 
-def _flush_worker():
-    global _flush_future
-    error = None
+def _flush_worker() -> None:
+    global _flush_future, _flush_requested
     while True:
         with _flush_lock:
-            generation = _flush_generation
+            _flush_requested = False
         try:
-            if not provider.force_flush(timeout_millis=1000):
-                error = "TraceExportFailure"
-        except Exception as exc:
-            error = error_type(exc)
+            provider.force_flush(timeout_millis=1000)
+        except Exception:
+            # Export failures acknowledge their spans; processor failures hit the bounded wait.
+            pass
         with _flush_lock:
-            if generation == _flush_generation:
+            if not _flush_requested:
                 _flush_future = None
-                return error
+                return
 
 
-async def flush_traces(request_span=None):
-    global _flush_future, _flush_generation
-    if not _export_enabled:
+async def flush_traces(request_span: Span, waiter: Future[str | None] | None) -> None:
+    global _flush_future, _flush_requested
+    if waiter is None:
         return
     started = perf_counter()
     with _flush_lock:
-        _flush_generation += 1
-        if _flush_future is None or _flush_future.done():
+        _flush_requested = True
+        if _flush_future is None:
             _flush_future = _flush_pool.submit(_flush_worker)
-        future = _flush_future
     try:
-        # SDK 1.45 force_flush ignores its timeout. Reuse one worker and bound only the request's wait.
-        error = await asyncio.wait_for(asyncio.shield(asyncio.wrap_future(future)), timeout=FLUSH_TIMEOUT_SECONDS)
+        # SDK 1.45 force_flush drains until quiet; await this root span's export instead.
+        error = await asyncio.wait_for(asyncio.shield(asyncio.wrap_future(waiter)), timeout=FLUSH_TIMEOUT_SECONDS)
     except Exception as exc:
         error = error_type(exc)
-    if error and request_span is not None:
+    finally:
+        context = request_span.get_span_context()
+        with _export_waiters_lock:
+            _export_waiters.pop((context.trace_id, context.span_id), None)
+    if error:
         completion_log("telemetry.flush", request_span, started, 503, error)
 
 
@@ -203,9 +253,9 @@ class TelemetryMiddleware:
         except UnicodeDecodeError:
             carrier = {}
         parent_context = TraceContextTextMapPropagator().extract(carrier)
-        state = {}
+        state: dict[str, str] = {}
         token = request_state.set(state)
-        messages = []
+        messages: list[Any] = []
 
         async def capture(message):
             messages.append(message)
@@ -242,6 +292,8 @@ class TelemetryMiddleware:
                         message["headers"] = [(key, value) for key, value in message["headers"] if key.lower() != b"x-trace-id"] + [(b"x-trace-id", trace_id.encode())]
                 completion_log(f"{method} {route}", span, started, status, state.get("error.type"), attributes)
                 request_state.reset(token)
-        await flush_traces(span)
+            # Register before span.end can hand this request to the batch exporter.
+            waiter = register_export(span)
+        await flush_traces(span, waiter)
         for message in messages:
             await send(message)
