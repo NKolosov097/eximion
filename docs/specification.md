@@ -27,3 +27,11 @@ Verify extraction validation/failures, author editing/save, server rendering, ex
 - Browser tests cover navigation and author/learner flows; repeatable screenshot comparisons cover desktop/mobile pages with stable synthetic data. Deploy frontend and backend after validation.
 
 - While the case catalog is loading, show three placeholder cards matching its layout, with a screen-reader status and reduced-motion support; replace them with the fetched results.
+
+## Authoring and regression polish
+- Confirm before replacing an extracted draft; cancellation sends no request. Keep independently entered answers, reset review after successful replacement, and visibly ask the author to recheck those answers. Failed extraction preserves the existing draft.
+- Explain Correct diagnosis and Other accepted names with Influenza / Flu examples and how grading uses these hidden fields.
+- Warn before abandoning unsaved clinical content through application links or reload/close; support cancellable browser history navigation where available. Do not persist clinical text or author keys. Empty forms, new-tab Docs, hash links and successful saves do not prompt.
+- Mark exactly one active header section with aria-current: Home, Cases (including details), or Create a case.
+- Render the real case title in tab metadata, sharing the request-scoped case loader with the page.
+- Compare eight desktop/mobile screenshots in CI using a pinned Linux/Chromium image and locally served fonts. Commit reviewed baselines; upload actual/diff artifacts on failures. Never update baselines in CI.

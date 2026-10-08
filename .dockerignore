@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/.env*
+**/coverage
+**/*.tsbuildinfo
+.git
+.local
+backend
+docs
+.agents
+.codex
+.aws

@@ -11,9 +11,10 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 
-assert.equal(process.platform, 'win32', 'These baselines require Windows/Chrome; create a separate baseline set for another platform.');
+assert.equal(process.platform, 'linux', 'Run screenshot checks with scripts/Dockerfile.screenshots (pinned Linux/Chromium).');
+assert.equal(process.arch, 'x64', 'Screenshot baselines require linux/amd64.');
 const root = path.resolve(__dirname, '..');
-const baselines = path.join(__dirname, 'screenshots', 'windows-chrome');
+const baselines = path.join(__dirname, 'screenshots', 'linux-chromium');
 const artifacts = path.join(root, '.local', 'screenshot-results');
 const update = process.argv.includes('--update-baselines');
 assert(process.argv.slice(2).every(arg => arg === '--update-baselines'), 'Only --update-baselines is supported.');
@@ -78,7 +79,7 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
       if (n === 99) throw new Error('Screenshot production server did not become ready.');
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    browser = await chromium.launch({ channel: 'chrome', headless: true });
+    browser = await chromium.launch({ headless: true });
     const environment = { platform: process.platform, osRelease: require('node:os').release(), architecture: process.arch, browser: browser.version(), playwright: require('../frontend/node_modules/playwright/package.json').version };
     const failures = [];
     const captured = [];
@@ -120,7 +121,10 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
         assert(stable, `${file} did not stabilize`);
         const baseline = path.join(baselines, file);
         if (update) fs.writeFileSync(baseline, actual);
-        else if (!fs.existsSync(baseline)) failures.push(`${file}: baseline missing; review --update-baselines output`);
+        else if (!fs.existsSync(baseline)) {
+          fs.writeFileSync(path.join(artifacts, file), actual);
+          failures.push(`${file}: baseline missing; review --update-baselines output`);
+        }
         else {
           const difference = compare(PNG.sync.read(actual), PNG.sync.read(fs.readFileSync(baseline)));
           if (difference) {

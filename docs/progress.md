@@ -192,3 +192,11 @@ Current implementation: frontend9b33fe2; backendee46085. Final local/cloud/API/t
 
 - Source d938a02 adds a small vector C icon in the application colors. Production build and isolated browser checks passed, including the emitted icon link and HTTP 200 SVG response. All CI checks passed: https://github.com/NKolosov097/eximion/actions/runs/37797574800 .
 - Frontend build e04b448e-d9fc-4550-8287-0d8b19eb6f47 succeeded; revision eximion-frontend-00007-5f2 serves 100% traffic. Live browser confirmed the favicon link and served SVG. Backend unchanged.
+
+## Approved usability polish (2026-10-08)
+- Protected re-extraction with cancellation, preserved independent answers and failed-extraction edits, and required renewed review after replacement. Clarified hidden correct-answer fields with Influenza / Flu examples.
+- Added in-memory unsaved-content guards for application links and reload/close, plus cancellable Navigation API history traversals. Docs/new tabs, hash navigation, key-only forms and successful saves are exempt; legacy browser Back limitation is documented.
+- Added exact active header links with aria-current and real case tab titles; production browser assertions confirm a single case API request for metadata and page.
+- Served the existing licensed fonts locally, pinned the Linux/amd64 Playwright image by digest, and added a CI screenshot job with actual/diff artifact uploads. Replaced Windows-specific baselines.
+- Frontend: 39 unit tests, typecheck, production build and expanded E2E passed. Manual Cloud Build 75fb49dc-dc6b-4b31-97a7-91cc8df10e93 generated all eight Linux screenshots and passed a second exact comparison. Local Docker registry download was slow, so the same pinned container ran in Cloud Build.
+- CI publication and live deployment pending below.

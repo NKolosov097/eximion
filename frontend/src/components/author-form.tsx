@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type SubmitEvent } from "react";
+import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { useRouter } from "next/navigation";
 import { ApiError, displayError, request } from "@/lib/api";
 import { messages } from "@/lib/messages";
@@ -31,6 +31,88 @@ export function AuthorForm() {
   const [saveInvalidField, setSaveInvalidField] = useState("");
   const [extractError, setExtractError] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [answersNeedReview, setAnswersNeedReview] = useState(false);
+  const hasUnsavedChanges = Boolean(
+    source.trim() ||
+      draft ||
+      symptoms.trim() ||
+      reference.trim() ||
+      alternatives.trim(),
+  );
+  const mayLeave = useRef(false);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (!mayLeave.current) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    const confirmNavigation = (event: MouseEvent) => {
+      if (
+        mayLeave.current ||
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
+      const target =
+        event.target instanceof Element
+          ? event.target.closest<HTMLAnchorElement>("a[href]")
+          : null;
+      if (!target || target.target === "_blank" || target.hasAttribute("download")) return;
+      const destination = new URL(target.href);
+      if (
+        destination.origin !== location.origin ||
+        destination.href === location.href ||
+        (destination.pathname === location.pathname &&
+          destination.search === location.search &&
+          destination.hash !== location.hash)
+      )
+        return;
+      if (!window.confirm(messages.unsavedChangesConfirm)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
+    document.addEventListener("click", confirmNavigation, true);
+    window.addEventListener("beforeunload", beforeUnload);
+    const navigation = (window as Window & { navigation?: EventTarget }).navigation;
+    // ponytail: Back prompts need Navigation API support; broaden this only if legacy browsers are required.
+    const confirmBack = (event: Event) => {
+      const navigateEvent = event as Event & {
+        navigationType?: string;
+        destination?: { sameDocument?: boolean; url?: string };
+      };
+      if (
+        mayLeave.current ||
+        !event.cancelable ||
+        navigateEvent.navigationType !== "traverse" ||
+        !navigateEvent.destination?.sameDocument
+      )
+        return;
+      if (navigateEvent.destination.url) {
+        const destination = new URL(navigateEvent.destination.url);
+        if (
+          destination.pathname === location.pathname &&
+          destination.search === location.search &&
+          destination.hash !== location.hash
+        )
+          return;
+      }
+      if (!window.confirm(messages.unsavedChangesConfirm)) event.preventDefault();
+    };
+    navigation?.addEventListener("navigate", confirmBack);
+    return () => {
+      document.removeEventListener("click", confirmNavigation, true);
+      window.removeEventListener("beforeunload", beforeUnload);
+      navigation?.removeEventListener("navigate", confirmBack);
+    };
+  }, [hasUnsavedChanges]);
 
   function editDraft(patch: Partial<ClinicalCaseDraft>) {
     setDraft((current) => (current ? { ...current, ...patch } : current));
@@ -48,9 +130,9 @@ export function AuthorForm() {
         ?.focus();
       return;
     }
+    if (draft && !window.confirm(messages.reextractConfirm)) return;
     setPending("extract");
     setExtractError("");
-    setReviewed(false);
     const body: ExtractionRequest = { source_text: source };
     try {
       const result = await request<ExtractionResponse>(
@@ -63,6 +145,8 @@ export function AuthorForm() {
       );
       setDraft(result.draft);
       setSymptoms(result.draft.symptoms.join("\n"));
+      setAnswersNeedReview(Boolean(draft));
+      setReviewed(false);
       setWarnings(result.warnings);
       setSaveError("");
       setSaveInvalidField("");
@@ -124,6 +208,7 @@ export function AuthorForm() {
         headers: { "X-Author-Key": authorKey },
         body: JSON.stringify(body),
       });
+      mayLeave.current = true;
       router.push(`/clinical-cases/${result.id}`);
     } catch (error) {
       setSaveError(displayError(error));
@@ -340,6 +425,11 @@ export function AuthorForm() {
               <h2>{messages.answersTitle}</h2>
               <p>{messages.answersDescription}</p>
             </div>
+            {answersNeedReview && !reviewed && (
+              <p className="notice" role="status" data-testid="author-answers-review-hint">
+                {messages.reextractReviewHint}
+              </p>
+            )}
             <label htmlFor="reference-diagnosis">
               {messages.referenceLabel}
             </label>

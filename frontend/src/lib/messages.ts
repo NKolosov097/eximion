@@ -82,16 +82,22 @@ export const messages = {
     "One symptom per line, up to 20. Each symptom can contain up to 200 characters.",
   ageLabel: "Age in years",
   ageHint: "Optional. Leave blank if the note does not state an age.",
-  answersTitle: "3. Set the accepted diagnosis",
+  answersTitle: "3. Set the correct answer",
   answersDescription:
-    "You supply the reference answer independently. It is hidden from people solving the case.",
-  referenceLabel: "Reference diagnosis",
-  alternativesLabel: "Accepted alternatives",
+    "Enter the diagnosis people should identify. Add other names that should also count as correct. These answers stay hidden from learners.",
+  referenceLabel: "Correct diagnosis",
+  alternativesLabel: "Other accepted names",
   alternativesHint:
-    "Optional, one per line, up to 20. Include explicit synonyms or abbreviations you want to accept.",
+    "Optional. Enter one other name per line, up to 20. For example, if the correct diagnosis is Influenza, add Flu here.",
+  reextractConfirm:
+    "Extract a new draft and replace the current clinical details? Your correct diagnosis and accepted names will stay, but you will need to check them again.",
+  reextractReviewHint:
+    "The clinical details changed. Recheck the correct diagnosis and accepted names before saving.",
   reviewedLabel:
     "I checked every field for accuracy and removed any revealed diagnosis from the public case.",
   reviewHint: "Editing a field requires you to confirm the review again.",
+  unsavedChangesConfirm:
+    "This case draft has not been saved. Leave this page and discard your changes?",
   save: "Save case",
   saving: "Saving case…",
   invalidNul: "Remove null characters from this field.",

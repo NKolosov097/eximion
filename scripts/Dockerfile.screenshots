@@ -1,0 +1,12 @@
+# Keep this browser image aligned with the pinned Playwright npm dependency.
+FROM node:24.19.0-bookworm-slim AS node
+FROM mcr.microsoft.com/playwright:v1.64.0-noble@sha256:bc72a8df40831ded821e3cbc79c318c21b44d6e51dff9fd89ace7a8249c5b462
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1 PLAYWRIGHT_CHANNEL=chromium
+COPY frontend/package*.json ./frontend/
+RUN cd frontend && npm ci
+COPY frontend ./frontend
+COPY scripts ./scripts
+RUN cd frontend && npm run build
+CMD ["node", "scripts/check-screenshots.cjs"]

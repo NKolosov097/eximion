@@ -91,6 +91,7 @@ jobs:
       - run: docker build -t eximion-backend backend
       - run: docker build -t eximion-frontend --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 frontend
   browser-tests:
+    timeout-minutes: 15
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -109,12 +110,26 @@ jobs:
         working-directory: frontend
         env:
           PLAYWRIGHT_CHANNEL: chromium
+  screenshot-tests:
+    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build --platform linux/amd64 -f scripts/Dockerfile.screenshots -t clinical-cases-screenshots .
+      - run: docker run --rm --ipc=host -v "$PWD/.local/screenshot-results:/app/.local/screenshot-results" clinical-cases-screenshots
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: screenshot-results
+          path: .local/screenshot-results/
+          retention-days: 14
+          include-hidden-files: true
   verify:
     if: always()
-    needs: [typechecks, unit-tests, integration-tests, api-contract, builds, browser-tests]
+    needs: [typechecks, unit-tests, integration-tests, api-contract, builds, browser-tests, screenshot-tests]
     runs-on: ubuntu-24.04
     steps:
       - name: Require every check to succeed
         env:
           RESULTS: ${{ join(needs.*.result, ',') }}
-        run: test "$RESULTS" = "success,success,success,success,success,success"
+        run: test "$RESULTS" = "success,success,success,success,success,success,success"

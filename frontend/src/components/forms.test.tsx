@@ -16,6 +16,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 const draft = {
@@ -149,7 +150,8 @@ describe("author workflow", () => {
     expect(saveOptions.headers["X-Author-Key"]).toBe("test-author-key");
   });
 
-  it("preserves an existing draft if re-extraction fails and invalidates its review", async () => {
+  it("preserves an existing draft and its review if re-extraction fails", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.stubGlobal(
       "fetch",
       vi
@@ -170,7 +172,40 @@ describe("author workflow", () => {
     expect(
       (screen.getByLabelText(messages.reviewedLabel) as HTMLInputElement)
         .checked,
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("asks before replacing a draft and keeps answers for a fresh review", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(response(extraction))
+      .mockResolvedValueOnce(response(extraction));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AuthorForm />);
+    await extractDraft();
+    fireEvent.change(screen.getByLabelText(messages.referenceLabel), {
+      target: { value: "Influenza" },
+    });
+    fireEvent.change(screen.getByLabelText(messages.alternativesLabel), {
+      target: { value: "Flu" },
+    });
+    fireEvent.change(screen.getByTestId("author-draft-title"), {
+      target: { value: "Edited title" },
+    });
+    fireEvent.click(screen.getByTestId("author-extract-submit"));
+    expect(confirm).toHaveBeenCalledWith(messages.reextractConfirm);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect((screen.getByTestId("author-draft-title") as HTMLInputElement).value).toBe("Edited title");
+    expect((screen.getByLabelText(messages.referenceLabel) as HTMLInputElement).value).toBe("Influenza");
+    confirm.mockImplementation(() => true);
+    fireEvent.click(screen.getByTestId("author-extract-submit"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect((screen.getByTestId("author-draft-title") as HTMLInputElement).value).toBe(draft.title));
+    expect((screen.getByLabelText(messages.referenceLabel) as HTMLInputElement).value).toBe("Influenza");
+    expect((screen.getByLabelText(messages.alternativesLabel) as HTMLTextAreaElement).value).toBe("Flu");
+    expect(screen.getByTestId("author-answers-review-hint").textContent).toBe(messages.reextractReviewHint);
+    expect((screen.getByTestId("author-review-confirmation") as HTMLInputElement).checked).toBe(false);
   });
 
   it("navigates to the saved case after a valid reviewed submission", async () => {

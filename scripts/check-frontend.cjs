@@ -23,13 +23,16 @@ const listen = async (server) => {
 
 (async () => {
   let requests = 0;
+  let caseFetches = 0;
   let healthy = false;
   let catalogEmpty = false;
   let holdCatalog = false;
   let releaseCatalog;
   const api = http.createServer(async (req, res) => {
     requests++;
-    if (holdCatalog && new URL(req.url, "http://localhost").pathname === "/api/v1/clinical-cases")
+    const requestPath = new URL(req.url, "http://localhost").pathname;
+    if (requestPath === `/api/v1/clinical-cases/${id}`) caseFetches++;
+    if (holdCatalog && requestPath === "/api/v1/clinical-cases")
       await new Promise((resolve) => { releaseCatalog = resolve; });
     res.writeHead(healthy ? 200 : 503, { "Content-Type": "application/json" });
     res.end(
@@ -95,6 +98,7 @@ const listen = async (server) => {
     await page.goto(`${origin}/clinical-cases/${id}`);
     await page.getByTestId("case-load-retry").waitFor();
     const failedRequests = requests;
+    const failedCaseFetches = caseFetches;
     assert(failedRequests > 0);
     healthy = true;
     await page.getByTestId("case-load-retry").click();
@@ -108,16 +112,21 @@ const listen = async (server) => {
       requests > failedRequests,
       "Retry must issue a new server-side API request.",
     );
+    assert.equal(caseFetches - failedCaseFetches, 1, "Case content and metadata share one API response.");
     assert.equal(
       await page.getByTestId("case-title").textContent(),
       draft.title,
     );
+    assert.equal(await page.title(), `${draft.title} · Clinical Cases`);
+    assert.equal(await page.getByTestId("nav-all-cases").getAttribute("aria-current"), "page");
     // The deliberately failed Server Component reports an expected production error.
     errors.length = 0;
     await page.getByTestId("nav-home-link").click();
     await page.waitForURL(`${origin}/`);
+    assert.equal(await page.getByTestId("nav-home-link").getAttribute("aria-current"), "page");
     const docs = page.getByTestId("nav-docs");
     const docsUrl = await docs.getAttribute("href");
+    assert.equal(typeof docsUrl, "string");
     assert.equal(new URL(docsUrl).pathname, "/docs");
     assert.equal(await docs.getAttribute("target"), "_blank");
     assert.deepEqual(new Set((await docs.getAttribute("rel")).split(/\s+/)), new Set(["noopener", "noreferrer"]));
@@ -137,8 +146,10 @@ const listen = async (server) => {
     assert.equal(await page.getByTestId("footer-github").getAttribute("href"), "https://github.com/NKolosov097");
     await page.getByTestId("nav-all-cases").click();
     await page.getByTestId("case-catalog").waitFor();
+    assert.equal(await page.getByTestId("nav-all-cases").getAttribute("aria-current"), "page");
     await page.getByTestId("nav-create-case").click();
     await page.getByTestId("author-source-text").waitFor();
+    assert.equal(await page.getByTestId("nav-create-case").getAttribute("aria-current"), "page");
     await page.getByTestId("nav-home").click();
     await page.waitForURL(`${origin}/`);
     await page.getByTestId("nav-all-cases").click();
@@ -209,6 +220,60 @@ const listen = async (server) => {
     );
     await page.keyboard.press("Enter");
     assert.equal(await page.evaluate(() => document.activeElement?.id), "main");
+    await page.getByTestId("author-key").fill("memory-only-key");
+    await page.getByTestId("nav-all-cases").click();
+    await page.getByTestId("case-catalog").waitFor();
+    await page.getByTestId("nav-create-case").click();
+    await page.getByTestId("author-source-text").waitFor();
+    await page.getByTestId("author-source-text").fill("A synthetic patient has fever and cough.");
+    let leaveDialogMessage = "";
+    page.once("dialog", async (dialog) => {
+      leaveDialogMessage = dialog.message();
+      await dialog.dismiss();
+    });
+    await page.getByTestId("nav-all-cases").click();
+    assert.equal(leaveDialogMessage, "This case draft has not been saved. Leave this page and discard your changes?");
+    assert.equal(new URL(page.url()).pathname, "/clinical-cases/new", "Cancel keeps the author form open.");
+    assert.equal(await page.getByTestId("author-source-text").inputValue(), "A synthetic patient has fever and cough.");
+    const dirtyDocsUrl = await page.getByTestId("nav-docs").getAttribute("href");
+    await page.context().route(dirtyDocsUrl, (route) => route.fulfill({
+      contentType: "text/html", body: "<title>Test API docs</title><h1>API docs</h1>",
+    }));
+    const dirtyDocsPopup = page.waitForEvent("popup");
+    await page.getByTestId("nav-docs").click();
+    const docsPopup = await dirtyDocsPopup;
+    await docsPopup.waitForLoadState();
+    await docsPopup.close();
+    await page.context().unroute(dirtyDocsUrl);
+    await page.getByTestId("skip-to-content").focus();
+    await page.getByTestId("skip-to-content").click();
+    assert.equal(new URL(page.url()).hash, "#main", "Same-page anchors do not warn.");
+    const hashBack = page.waitForFunction(() => location.hash === "");
+    await page.evaluate(() => history.back());
+    await hashBack;
+    const reloadPrompt = page.waitForEvent("dialog", { timeout: 10000 }).then(async (dialog) => {
+      await dialog.dismiss();
+      return dialog.type();
+    });
+    await page.evaluate(() => { setTimeout(() => location.reload(), 0); });
+    assert.equal(await reloadPrompt, "beforeunload");
+    assert.equal(await page.getByTestId("author-source-text").inputValue(), "A synthetic patient has fever and cough.");
+    if (await page.evaluate(() => "navigation" in window)) {
+      const backPrompt = page.waitForEvent("dialog", { timeout: 10000 }).then(async (dialog) => {
+        await dialog.dismiss();
+        return dialog.type();
+      });
+      await page.evaluate(() => history.back());
+      assert.equal(await backPrompt, "confirm");
+      assert.equal(new URL(page.url()).pathname, "/clinical-cases/new", "Canceling browser Back keeps the form open.");
+    }
+    page.once("dialog", async (dialog) => dialog.accept());
+    await page.getByTestId("nav-all-cases").click();
+    await page.getByTestId("case-catalog").waitFor();
+    assert.equal(new URL(page.url()).pathname, "/clinical-cases", "Accepting a leave prompt follows the link.");
+    await page.getByTestId("nav-create-case").click();
+    await page.getByTestId("author-source-text").waitFor();
+    await page.getByTestId("author-key").fill("memory-only-key");
     await page.getByTestId("author-source-text").fill(" ".repeat(20) + "short");
     await page.getByTestId("author-extract-submit").click();
     assert.equal(
@@ -224,6 +289,21 @@ const listen = async (server) => {
     await page.getByTestId("author-draft-title").waitFor();
     assert.equal([...browserRequests.at(-1).body.source_text].length, 20000);
     assert.equal(await page.getByTestId("author-reference-diagnosis").inputValue(), "");
+    await page.getByTestId("author-reference-diagnosis").fill("Influenza");
+    await page.getByTestId("author-accepted-alternatives").fill("Flu");
+    await page.getByTestId("author-draft-title").fill("Manual title");
+    const beforeCancelledExtraction = browserRequests.length;
+    page.once("dialog", (dialog) => dialog.dismiss());
+    await page.getByTestId("author-extract-submit").click();
+    assert.equal(browserRequests.length, beforeCancelledExtraction, "Canceling re-extraction sends no request.");
+    assert.equal(await page.getByTestId("author-draft-title").inputValue(), "Manual title");
+    page.once("dialog", (dialog) => dialog.accept());
+    await page.getByTestId("author-extract-submit").click();
+    await page.getByTestId("author-answers-review-hint").waitFor();
+    assert.equal(await page.getByTestId("author-draft-title").inputValue(), draft.title);
+    assert.equal(await page.getByTestId("author-reference-diagnosis").inputValue(), "Influenza");
+    assert.equal(await page.getByTestId("author-accepted-alternatives").inputValue(), "Flu");
+    assert.equal(await page.getByTestId("author-review-confirmation").isChecked(), false);
     await page.getByTestId("author-reference-diagnosis").fill("Influenza");
     const beforeUnreviewedSave = browserRequests.length;
     assert(await page.getByTestId("author-save-submit").isDisabled(), "Saving requires explicit review.");
@@ -349,6 +429,9 @@ const listen = async (server) => {
       docs_new_tab_icon_noopener_and_footer_github: true,
       attempt_validation_correct_incorrect_error_recovery: true,
       author_review_required_and_reset_on_edit: true,
+      reextract_confirmation_answers_preserved_and_review_reset: true,
+      unsaved_author_form_navigation_guard_and_key_exemption: true,
+      current_header_section_and_case_metadata: true,
       catalog_navigation_pagination_empty_retry: true,
       catalog_skeleton_transition_and_reduced_motion: true,
       production_retry_new_api_request: true,

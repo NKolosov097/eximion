@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AttemptForm } from "@/components/attempt-form";
 import { apiBaseUrl } from "@/lib/api";
@@ -15,8 +17,7 @@ interface CasePageProps {
   params: Promise<CasePageParams>;
 }
 
-export default async function CasePage({ params }: CasePageProps) {
-  const { id } = await params;
+const getClinicalCase = cache(async (id: string): Promise<ClinicalCase> => {
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
   )
@@ -31,7 +32,17 @@ export default async function CasePage({ params }: CasePageProps) {
   });
   if (response.status === 404) notFound();
   if (!response.ok) throw new Error(messages.unavailable);
-  const clinicalCase: ClinicalCase = await response.json();
+  return response.json();
+});
+
+export async function generateMetadata({ params }: CasePageProps): Promise<Metadata> {
+  const { id } = await params;
+  return { title: (await getClinicalCase(id)).title };
+}
+
+export default async function CasePage({ params }: CasePageProps) {
+  const { id } = await params;
+  const clinicalCase = await getClinicalCase(id);
 
   return (
     <div className="case-page" data-testid="case-page">

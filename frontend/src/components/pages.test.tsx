@@ -18,8 +18,10 @@ import CaseError from "@/app/clinical-cases/[id]/error";
 import NotFound from "@/app/not-found";
 import { DEMO_CASE_ID, messages } from "@/lib/messages";
 
+const { currentPath } = vi.hoisted(() => ({ currentPath: { value: "/" } }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => currentPath.value,
   notFound: () => {
     throw new Error("not-found");
   },
@@ -68,6 +70,8 @@ describe("page selector contract", () => {
       ).toBe(target);
     }
     const docs = document.querySelector('[data-testid="nav-docs"]');
+    expect(document.querySelector('[data-testid="nav-home-link"]')?.getAttribute("aria-current")).toBe("page");
+    expect(document.querySelector('[data-testid="nav-all-cases"]')?.hasAttribute("aria-current")).toBe(false);
     expect(docs?.getAttribute("href")).toMatch(/\/docs$/);
     expect(docs?.getAttribute("target")).toBe("_blank");
     expect(docs?.getAttribute("rel")).toBe("noopener noreferrer");
@@ -77,6 +81,21 @@ describe("page selector contract", () => {
     expect(screen.getByTestId("author-page-title").textContent).toBe(
       messages.newTitle,
     );
+  });
+
+  it("marks the current section on home, catalog, detail, and author routes", async () => {
+    const { SiteNav } = await import("@/components/site-nav");
+    for (const [routePath, current] of [
+      ["/", "nav-home-link"],
+      ["/clinical-cases", "nav-all-cases"],
+      [`/clinical-cases/${DEMO_CASE_ID}`, "nav-all-cases"],
+      ["/clinical-cases/new", "nav-create-case"],
+    ]) {
+      currentPath.value = routePath;
+      const view = render(<SiteNav />);
+      expect(view.container.querySelector('[aria-current="page"]')?.getAttribute("data-testid")).toBe(current);
+      view.unmount();
+    }
   });
 
   it("exposes server-rendered public case content and repeated symptom rows", async () => {

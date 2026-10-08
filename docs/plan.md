@@ -38,3 +38,9 @@ Tests after implementation, without mandatory test-first. Backend integration us
 - [x] Add Home, Cases, Create case and external Docs navigation; add GitHub credit to footer.
 - [x] Add/run E2E and screenshot regression checks with pinned Playwright, then review captured pages.
 - [x] Publish verified changes and deploy backend/frontend; verify live navigation and catalog.
+
+## Approved usability improvements
+- [x] Protect draft replacement and unsaved navigation; clarify hidden grading answers.
+- [x] Add active navigation and case-specific metadata with a shared loader.
+- [x] Pin screenshot container, serve existing fonts locally, review Linux baselines and enable CI artifact uploads.
+- [ ] Verify unit/type/build/browser/visual checks, review implementation, push, deploy frontend and verify live behavior.

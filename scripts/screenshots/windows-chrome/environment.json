@@ -1,7 +1,0 @@
-{
-  "platform": "win32",
-  "browser": "155.0.8059.39",
-  "playwright": "1.64.0",
-  "osRelease": "10.0.26200",
-  "architecture": "x64"
-}

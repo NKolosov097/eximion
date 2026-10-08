@@ -77,11 +77,25 @@ Install frontend dependencies and build before running the isolated browser chec
 npm ci --prefix frontend
 npm run build --prefix frontend
 npm run test:e2e --prefix frontend
-npm run test:screenshots --prefix frontend
 ```
 
-Both suites start their own local production server with synthetic API fixtures; they do not write to the deployed database or call Gemini. Local runs use installed Google Chrome. CI installs Playwright Chromium and runs E2E with `PLAYWRIGHT_CHANNEL=chromium`.
+Both suites start their own local production server with synthetic API fixtures; they do not write to the deployed database or call Gemini. Local E2E uses installed Google Chrome. CI installs Playwright Chromium and runs E2E with `PLAYWRIGHT_CHANNEL=chromium`.
 
-Screenshot baselines in `scripts/screenshots/windows-chrome` cover Home, Cases, a case and the author form on desktop/mobile. They depend on Windows, Chrome and fonts; run screenshot comparisons in the recorded environment. Review intentional UI changes before updating with `npm run test:screenshots --prefix frontend -- --update-baselines`. Failed comparisons write actual/diff images under `.local/screenshot-results`. The pinned Playwright PNG decoder is used by this test harness and must be checked when upgrading Playwright.
+Screenshot comparisons run inside the same pinned Linux/amd64 browser container locally and in CI. Fonts are served from the application. From the repository root, in PowerShell:
+
+```powershell
+docker build --platform linux/amd64 -f scripts/Dockerfile.screenshots -t clinical-cases-screenshots .
+docker run --rm --ipc=host -v "${PWD}/.local/screenshot-results:/app/.local/screenshot-results" clinical-cases-screenshots
+```
+
+Eight reviewed baselines in `scripts/screenshots/linux-chromium` cover Home, Cases, a case and the author form on desktop/mobile. After an intentional UI change, generate candidates with the command below, inspect all changed images, then rerun the comparison (rebuild the image to include the reviewed baselines):
+
+```powershell
+docker run --rm --ipc=host -v "${PWD}/scripts/screenshots/linux-chromium:/app/scripts/screenshots/linux-chromium" clinical-cases-screenshots node scripts/check-screenshots.cjs --update-baselines
+```
+
+Failed comparisons write actual/diff PNGs and a report under `.local/screenshot-results`. GitHub Actions uploads that directory as **screenshot-results** (14-day retention); open the workflow run's Artifacts section to download it. CI never updates baselines. The pinned Playwright PNG decoder is used by this test harness and must be checked when upgrading Playwright.
 
 The header links to Home, Cases, Create case and API Docs (a new tab). The footer links to the author's GitHub profile.
+
+Unsaved author content is kept only in memory. Links and reload/close warn before leaving; same-document browser Back also warns in browsers with the Navigation API. Legacy browsers without that API cannot cancel SPA history traversal. No draft or author key is written to browser storage.

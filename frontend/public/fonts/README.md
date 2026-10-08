@@ -1,0 +1,1 @@
+DM Sans and Manrope variable fonts, served locally for reliable rendering without third-party font requests. Downloaded from Google Fonts CSS API on 2026-10-08; all supplied language subsets retained. See the adjacent SIL Open Font License files.
