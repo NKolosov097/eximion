@@ -54,7 +54,7 @@ npm run build --prefix frontend
 uv run --project backend python scripts/smoke.py http://localhost:8000
 ```
 
-One command regenerates both `docs/openapi.json` and `frontend/src/lib/api.generated.ts`. CI repeats it and rejects drift. Do not manually edit API DTO types. Integration tests use real PostgreSQL and must not target application data; selecting them without TEST_DATABASE_URL fails. Unit tests do not need a database. CI has separate typechecks, unit-tests, integration-tests, api-contract and builds jobs, with an aggregate verify gate.
+One command regenerates both `docs/openapi.json` and `frontend/src/lib/api.generated.ts`. CI repeats it and rejects drift. Do not manually edit API DTO types. Integration tests use real PostgreSQL and must not target application data; selecting them without TEST_DATABASE_URL fails. Unit tests do not need a database. CI has separate typechecks, unit-tests, integration-tests, api-contract, builds and browser-tests jobs, with an aggregate verify gate.
 
 ## Structure
 
@@ -68,3 +68,20 @@ One command regenerates both `docs/openapi.json` and `frontend/src/lib/api.gener
 See [deployment](docs/deployment.md), [LLM evaluation](docs/llm.md), [actual progress](docs/progress.md), and [API contract](docs/api-contract.md). Cloud success is recorded only after deployment and live verification.
 
 Stable E2E selectors are documented in [docs/e2e-selectors.md](docs/e2e-selectors.md). Backend tracing, safe JSON logs and Cloud Trace inspection are documented in [docs/observability.md](docs/observability.md).
+
+## Browser regression checks
+
+Install frontend dependencies and build before running the isolated browser checks:
+
+```sh
+npm ci --prefix frontend
+npm run build --prefix frontend
+npm run test:e2e --prefix frontend
+npm run test:screenshots --prefix frontend
+```
+
+Both suites start their own local production server with synthetic API fixtures; they do not write to the deployed database or call Gemini. Local runs use installed Google Chrome. CI installs Playwright Chromium and runs E2E with `PLAYWRIGHT_CHANNEL=chromium`.
+
+Screenshot baselines in `scripts/screenshots/windows-chrome` cover Home, Cases, a case and the author form on desktop/mobile. They depend on Windows, Chrome and fonts; run screenshot comparisons in the recorded environment. Review intentional UI changes before updating with `npm run test:screenshots --prefix frontend -- --update-baselines`. Failed comparisons write actual/diff images under `.local/screenshot-results`. The pinned Playwright PNG decoder is used by this test harness and must be checked when upgrading Playwright.
+
+The header links to Home, Cases, Create case and API Docs (a new tab). The footer links to the author's GitHub profile.

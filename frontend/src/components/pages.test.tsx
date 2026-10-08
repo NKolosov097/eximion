@@ -7,6 +7,8 @@ import {
   within,
 } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
+import CatalogPage from "@/app/clinical-cases/page";
+import CatalogError from "@/app/clinical-cases/error";
 import HomePage from "@/app/page";
 import RootLayout from "@/app/layout";
 import NewCasePage from "@/app/clinical-cases/new/page";
@@ -54,6 +56,9 @@ describe("page selector contract", () => {
     for (const [selector, target] of [
       ["skip-to-content", "#main"],
       ["nav-home", "/"],
+      ["nav-home-link", "/"],
+      ["footer-github", "https://github.com/NKolosov097"],
+      ["nav-all-cases", "/clinical-cases"],
       ["nav-create-case", "/clinical-cases/new"],
     ]) {
       expect(
@@ -62,6 +67,12 @@ describe("page selector contract", () => {
           ?.getAttribute("href"),
       ).toBe(target);
     }
+    const docs = document.querySelector('[data-testid="nav-docs"]');
+    expect(docs?.getAttribute("href")).toMatch(/\/docs$/);
+    expect(docs?.getAttribute("target")).toBe("_blank");
+    expect(docs?.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(docs?.getAttribute("aria-label")).toBe(messages.docsLabel);
+    expect(docs?.querySelector("svg")).toBeTruthy();
     render(<NewCasePage />);
     expect(screen.getByTestId("author-page-title").textContent).toBe(
       messages.newTitle,
@@ -83,7 +94,7 @@ describe("page selector contract", () => {
     );
     render(await CasePage({ params: Promise.resolve({ id: DEMO_CASE_ID }) }));
     const page = within(screen.getByTestId("case-page"));
-    expect(page.getByTestId("case-back-home").getAttribute("href")).toBe("/");
+    expect(page.getByTestId("case-back-home").getAttribute("href")).toBe("/clinical-cases");
     expect(page.getByTestId("case-title").textContent).toBe(clinicalCase.title);
     expect(page.getByTestId("case-vignette").textContent).toBe(
       clinicalCase.vignette,
@@ -115,7 +126,50 @@ describe("page selector contract", () => {
     render(<NotFound />);
     expect(screen.getByTestId("case-not-found")).toBeTruthy();
     expect(screen.getByTestId("case-not-found-home").getAttribute("href")).toBe(
-      "/",
+      "/clinical-cases",
     );
+  });
+});
+
+
+describe("case catalog", () => {
+  it("renders saved case links and paginates without caching", async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      items: [{ id: DEMO_CASE_ID, title: "Saved case", vignette: "Synthetic vignette", age_years: null }],
+      has_more: true,
+    })));
+    vi.stubGlobal("fetch", fetch);
+    render(await CatalogPage({ searchParams: Promise.resolve({ page: "2" }) }));
+    expect(screen.getByRole("link", { name: "Saved case" }).getAttribute("href")).toBe(`/clinical-cases/${DEMO_CASE_ID}`);
+    expect(screen.getByRole("link", { name: messages.previous }).getAttribute("href")).toBe("/clinical-cases?page=1");
+    expect(screen.getByRole("link", { name: messages.next }).getAttribute("href")).toBe("/clinical-cases?page=3");
+    expect(screen.getByText(`${messages.age}: ${messages.ageUnknown}`)).toBeTruthy();
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining("?page=2&page_size=20"), expect.objectContaining({ cache: "no-store" }));
+  });
+
+  it.each([1, 3])("offers a useful empty state on page %i", async (page) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], has_more: false }))));
+    render(await CatalogPage({ searchParams: Promise.resolve({ page: String(page) }) }));
+    expect(screen.getByText(page === 1 ? messages.catalogEmpty : messages.catalogPageEmpty)).toBeTruthy();
+    expect(screen.queryByRole("link", { name: messages.next })).toBeNull();
+    expect(screen.getByRole("link", { name: page === 1 ? messages.create : messages.firstPage }).getAttribute("href")).toBe(page === 1 ? "/clinical-cases/new" : "/clinical-cases");
+  });
+
+  it.each(["0", "-1", "x", "1000001", ["1", "2"]])("rejects invalid page %s before fetching", async (page) => {
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+    await expect(CatalogPage({ searchParams: Promise.resolve({ page }) })).rejects.toThrow("not-found");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("surfaces an unavailable service and retries through a fresh request", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("{}", { status: 503 })));
+    await expect(CatalogPage({ searchParams: Promise.resolve({}) })).rejects.toThrow(messages.unavailable);
+    const reload = vi.fn();
+    vi.stubGlobal("window", { location: { reload } });
+    render(<CatalogError />);
+    expect(screen.getByRole("alert").textContent).toBe(messages.unavailable);
+    fireEvent.click(screen.getByRole("button", { name: messages.retry }));
+    expect(reload).toHaveBeenCalledOnce();
   });
 });

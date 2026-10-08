@@ -1,4 +1,4 @@
-﻿const { chromium } = require("../.local/browser-check/node_modules/playwright");
+﻿const { chromium } = require("../frontend/node_modules/playwright");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const http = require("node:http");
@@ -24,13 +24,16 @@ const listen = async (server) => {
 (async () => {
   let requests = 0;
   let healthy = false;
+  let catalogEmpty = false;
   const api = http.createServer((req, res) => {
     requests++;
     res.writeHead(healthy ? 200 : 503, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify(
         healthy
-          ? clinicalCase
+          ? (new URL(req.url, "http://localhost").pathname === "/api/v1/clinical-cases"
+            ? { items: catalogEmpty ? [] : [clinicalCase], has_more: !catalogEmpty && new URL(req.url, "http://localhost").searchParams.get("page") === "1" }
+            : clinicalCase)
           : { error: { message: "Temporary test failure." } },
       ),
     );
@@ -75,7 +78,10 @@ const listen = async (server) => {
         throw new Error("Test production server did not become ready.");
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    browser = await chromium.launch({ channel: "chrome", headless: true });
+    browser = await chromium.launch({
+      ...(process.env.PLAYWRIGHT_CHANNEL === "chromium" ? {} : { channel: "chrome" }),
+      headless: true,
+    });
     const page = await browser.newPage({
       viewport: { width: 1440, height: 1000 },
       reducedMotion: "reduce",
@@ -99,7 +105,39 @@ const listen = async (server) => {
     );
     // The deliberately failed Server Component reports an expected production error.
     errors.length = 0;
+    await page.getByTestId("nav-home-link").click();
+    await page.waitForURL(`${origin}/`);
+    const docs = page.getByTestId("nav-docs");
+    const docsUrl = await docs.getAttribute("href");
+    assert.equal(new URL(docsUrl).pathname, "/docs");
+    assert.equal(await docs.getAttribute("target"), "_blank");
+    assert.deepEqual(new Set((await docs.getAttribute("rel")).split(/\s+/)), new Set(["noopener", "noreferrer"]));
+    assert(await docs.locator("svg").isVisible(), "Docs shows the external-link icon.");
+    await page.context().route(docsUrl, (route) => route.fulfill({
+      contentType: "text/html", body: "<title>Test API docs</title><h1>API docs</h1>",
+    }));
+    const popupPromise = page.waitForEvent("popup");
+    await docs.click();
+    const popup = await popupPromise;
+    await popup.waitForLoadState();
+    assert.equal(popup.url(), docsUrl);
+    assert.equal(await popup.evaluate(() => window.opener), null);
+    assert.equal(page.url(), `${origin}/`, "Docs leaves the application tab intact.");
+    await popup.close();
+    await page.context().unroute(docsUrl);
+    assert.equal(await page.getByTestId("footer-github").getAttribute("href"), "https://github.com/NKolosov097");
+    await page.getByTestId("nav-all-cases").click();
+    await page.getByTestId("case-catalog").waitFor();
+    await page.getByTestId("nav-create-case").click();
+    await page.getByTestId("author-source-text").waitFor();
+    await page.getByTestId("nav-home").click();
+    await page.waitForURL(`${origin}/`);
+    await page.getByTestId("nav-all-cases").click();
+    await page.getByRole("link", { name: draft.title, exact: true }).click();
+    await page.getByTestId("case-title").waitFor();
+
     const browserRequests = [];
+    let attemptUnavailable = false;
     await page.route("**/api/v1/**", async (route) => {
       const request = route.request();
       browserRequests.push({
@@ -108,19 +146,45 @@ const listen = async (server) => {
       });
       let body = clinicalCase;
       if (request.url().endsWith("/extract")) body = { draft, warnings: [] };
-      if (request.url().endsWith("/attempts"))
-        body = {
-          score: 100,
-          max_score: 100,
-          is_correct: true,
-          feedback: "Accepted synthetic answer.",
-        };
+      const isAttempt = request.url().endsWith("/attempts");
+      if (isAttempt) {
+        const correct = request.postDataJSON().diagnosis.trim().toLowerCase() !== "unrelated diagnosis";
+        body = attemptUnavailable
+          ? { error: { message: "Synthetic service unavailable." } }
+          : { score: correct ? 100 : 0, max_score: 100, is_correct: correct,
+              feedback: correct ? "Accepted synthetic answer." : "Incorrect synthetic answer." };
+      }
       await route.fulfill({
-        status: 200,
+        status: isAttempt && attemptUnavailable ? 503 : 200,
         contentType: "application/json",
         body: JSON.stringify(body),
       });
     });
+    await page.getByTestId("attempt-diagnosis").fill("   ");
+    await page.getByTestId("attempt-submit").click();
+    await page.getByTestId("attempt-error").waitFor();
+    assert.equal(browserRequests.length, 0, "Invalid answers never reach the API.");
+    assert.equal(await page.getByTestId("attempt-diagnosis").getAttribute("aria-invalid"), "true");
+    for (const [answer, title, score] of [
+      ["  FLU  ", "Accepted diagnosis", "100 / 100"],
+      ["Unrelated diagnosis", "Keep thinking", "0 / 100"],
+    ]) {
+      await page.getByTestId("attempt-diagnosis").fill(answer);
+      assert.equal(await page.getByTestId("attempt-result").count(), 0, "Editing clears stale feedback.");
+      await page.getByTestId("attempt-submit").click();
+      await page.getByTestId("attempt-result").waitFor();
+      assert.equal(await page.getByTestId("attempt-result-title").textContent(), title);
+      assert.equal(await page.getByTestId("attempt-score").textContent(), score);
+      assert.equal(browserRequests.at(-1).body.diagnosis, answer);
+    }
+    attemptUnavailable = true;
+    await page.getByTestId("attempt-diagnosis").fill("Influenza");
+    await page.getByTestId("attempt-submit").click();
+    await page.getByTestId("attempt-error").waitFor();
+    assert.equal(await page.getByTestId("attempt-error").textContent(), "Synthetic service unavailable.");
+    assert.equal(await page.getByTestId("attempt-diagnosis").inputValue(), "Influenza");
+    assert(await page.getByTestId("attempt-submit").isEnabled());
+    attemptUnavailable = false;
     const emoji = String.fromCodePoint(0x1f600);
     await page.getByTestId("attempt-diagnosis").fill(` ${emoji.repeat(200)} `);
     await page.getByTestId("attempt-diagnosis").press("Enter");
@@ -150,6 +214,14 @@ const listen = async (server) => {
     await page.getByTestId("author-extract-submit").click();
     await page.getByTestId("author-draft-title").waitFor();
     assert.equal([...browserRequests.at(-1).body.source_text].length, 20000);
+    assert.equal(await page.getByTestId("author-reference-diagnosis").inputValue(), "");
+    await page.getByTestId("author-reference-diagnosis").fill("Influenza");
+    const beforeUnreviewedSave = browserRequests.length;
+    assert(await page.getByTestId("author-save-submit").isDisabled(), "Saving requires explicit review.");
+    assert.equal(browserRequests.length, beforeUnreviewedSave);
+    await page.getByTestId("author-review-confirmation").check();
+    await page.getByTestId("author-draft-title").fill("Edited synthetic case");
+    assert.equal(await page.getByTestId("author-review-confirmation").isChecked(), false);
     for (const [selector, count] of [
       ["author-draft-title", 120],
       ["author-draft-vignette", 8000],
@@ -209,9 +281,45 @@ const listen = async (server) => {
     assert.equal([...saved.reference_diagnosis.trim()].length, 200);
     assert.equal([...saved.symptoms[0]].length, 200);
     assert.equal([...saved.accepted_answers[0]].length, 200);
+    await page.unroute("**/api/v1/**");
+    await page.getByTestId("case-back-home").click();
+    await page.getByTestId("case-catalog").waitFor();
+    assert.equal(new URL(page.url()).pathname, "/clinical-cases");
+    await page.getByRole("link", { name: "Next page", exact: true }).click();
+    await page.waitForURL(`${origin}/clinical-cases?page=2`);
+    await page.getByRole("link", { name: "Previous page", exact: true }).click();
+    await page.waitForURL(`${origin}/clinical-cases?page=1`);
+    for (const width of [320, 390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `Catalog overflow at ${width}px`);
+      for (const selector of ["nav-home-link", "nav-all-cases", "nav-create-case", "nav-docs", "footer-github"]) {
+        assert(await page.getByTestId(selector).isVisible(), `${selector} visible at ${width}px`);
+      }
+    }
+    await page.getByRole("link", { name: draft.title, exact: true }).click();
+    await page.getByTestId("case-title").waitFor();
+    catalogEmpty = true;
+    await page.goto(`${origin}/clinical-cases`);
+    await page.getByTestId("catalog-empty").waitFor();
+    assert(await page.getByText("No cases have been saved yet.").isVisible());
     assert.deepEqual(errors, []);
+    healthy = false;
+    await page.reload();
+    await page.getByRole("heading", { name: "Unable to load cases" }).waitFor();
+    const failedCatalogRequests = requests;
+    healthy = true;
+    await page.getByRole("button", { name: "Try again", exact: true }).click();
+    await page.getByTestId("catalog-empty").waitFor();
+    assert(requests > failedCatalogRequests);
+    errors.length = 0; // Expected Server Component error from the injected 503.
+
     const report = {
       status: "passed",
+      header_home_cases_create_and_brand_navigation: true,
+      docs_new_tab_icon_noopener_and_footer_github: true,
+      attempt_validation_correct_incorrect_error_recovery: true,
+      author_review_required_and_reset_on_edit: true,
+      catalog_navigation_pagination_empty_retry: true,
       production_retry_new_api_request: true,
       keyboard_skip_and_submit: true,
       unicode_boundaries: true,

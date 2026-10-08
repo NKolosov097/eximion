@@ -2,7 +2,7 @@
 
 Use `getByTestId(name)` (Playwright or Testing Library) or `[data-testid="name"]`. These names are stable across copy and CSS changes. Keep roles, labels and keyboard behavior when changing markup. Renaming or removing a selector requires updating this contract, tests and E2E consumers together.
 
-Selectors are unique within the active page, except `case-symptom`, which repeats for the ordered symptom rows. Scope row queries to `case-symptoms`. Names never contain case IDs, user content or secrets.
+Selectors are unique within the active page, except `case-symptom` for ordered symptom rows and `catalog-case` for saved case rows. Scope row queries to `case-symptoms`. Names never contain case IDs, user content or secrets.
 
 ## Navigation and home
 
@@ -10,6 +10,7 @@ Selectors are unique within the active page, except `case-symptom`, which repeat
 | --- | --- |
 | `skip-to-content` | Global skip link to `#main` |
 | `nav-home` | Global brand link to `/` |
+| `nav-all-cases` | Global navigation link to `/clinical-cases` |
 | `nav-create-case` | Global navigation link to `/clinical-cases/new` |
 | `home-create-case` | Home hero link to authoring |
 | `home-demo-case-primary` | Home hero link to the demonstration case |
@@ -45,7 +46,7 @@ The draft fields and save form appear after successful extraction. Existing draf
 | Selector | Element / behavior |
 | --- | --- |
 | `case-page` | Successfully loaded server-rendered case container |
-| `case-back-home` | Link back to `/` |
+| `case-back-home` | Link back to `/clinical-cases` (legacy selector retained) |
 | `case-title` | Public case title heading |
 | `case-age` | Public age badge, including the unknown-age state |
 | `case-vignette` | Public vignette paragraph |
@@ -56,7 +57,7 @@ The draft fields and save form appear after successful extraction. Existing draf
 | `case-load-error-message` | Failed case-load alert |
 | `case-load-retry` | Retry button, reloads the page and fetches the case again on the server |
 | `case-not-found` | Not-found route container |
-| `case-not-found-home` | Not-found link back to `/` |
+| `case-not-found-home` | Not-found link to `/clinical-cases` (legacy selector retained) |
 
 Route loading can be brief or absent when a navigation resolves immediately. Tests of loading should delay the request rather than assume it remains visible.
 
@@ -88,3 +89,15 @@ node scripts/browser-smoke.cjs
 The script reads deployment URLs and the private `.local/cloud-secrets.json` author key, exercises real extraction/review/save/attempts using stable selectors, checks mobile overflow, and saves `docs/cloud-browser-check.json`. It never prints the key. It creates a synthetic case in the deployed database. Optional `FRONTEND_CHECK_URL` selects the other frontend URL alias.
 
 For isolated frontend regression checks, first build with `npm run build --prefix frontend`, then run `node scripts/check-frontend.cjs`. It starts temporary random-port servers, uses a synthetic mock API, and checks Retry, keyboard focus, Unicode limits, reduced motion and responsive overflow. Results are saved to `.local/frontend-check.json`; this does not replace the real cloud smoke test.
+
+## Case catalog
+
+| Selector | Element / behavior |
+| --- | --- |
+| `case-catalog` | Server-rendered catalog at `/clinical-cases` |
+| `catalog-case` | Repeated saved case row; title links to case |
+| `catalog-empty` | Empty first or out-of-range page with recovery link |
+
+Pagination navigation is labeled `Case pages`; links are `Previous page` and `Next page`.
+
+Global navigation also exposes `nav-home-link`, `nav-docs` (new tab) and `footer-github`. The brand keeps `nav-home`.

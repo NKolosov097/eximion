@@ -28,3 +28,13 @@ Project eximion-511003, applications/SQL/registry in europe-west3 (Frankfurt), G
 
 ## Verification strategy
 Tests after implementation, without mandatory test-first. Backend integration uses real PostgreSQL, not SQLite. Frontend meaningful form/failure tests and production build. Browser full journey and responsive inspection. Contract regeneration must give no diff. Cloud success requires live calls, persisted data and actual revisions; pending access never counts as success.
+
+## Case catalog
+- [x] Add public GET /api/v1/clinical-cases with page (1-1,000,000), page_size (1-100, default 20), items and has_more; order by created_at DESC, id DESC and reuse the public case schema.
+- [x] Add uncached SSR catalog, pagination, empty/error states and header/back navigation; retain English UI and mobile/keyboard support.
+- [x] Regenerate contract and verify ordering, pagination, answer exclusion, navigation and states with PostgreSQL and frontend tests/typechecks.
+
+## Navigation and browser regression checks
+- [x] Add Home, Cases, Create case and external Docs navigation; add GitHub credit to footer.
+- [x] Add/run E2E and screenshot regression checks with pinned Playwright, then review captured pages.
+- [ ] Publish verified changes and deploy backend/frontend; verify live navigation and catalog.

@@ -6,6 +6,7 @@ Pydantic is authoritative. Reject unknown request fields. Trim strings before va
 - ClinicalCaseDraft: title required string 1..120; vignette required string 1..8000; symptoms required array 1..20 of nonblank strings 1..200; age_years optional strict integer 0..120 or null, default null.
 - ClinicalCaseCreate: draft fields plus reference_diagnosis required string 1..200; accepted_answers optional array default [] max 20, each string 1..200.
 - ClinicalCase: draft fields plus required id UUID and created_at datetime. Response age_years always present. No reference, alternatives, normalized answers or source text.
+- ClinicalCasePage: items ClinicalCase[] and has_more boolean.
 - ExtractionRequest: source_text required string 20..20000.
 - ExtractionResponse: required draft ClinicalCaseDraft and warnings string[]. Always include: Review the draft for accuracy and remove any revealed diagnosis before saving.
 - AttemptCreate: diagnosis required string 1..200.
@@ -14,6 +15,7 @@ Pydantic is authoritative. Reject unknown request fields. Trim strings before va
 ## Routes
 - POST /api/v1/clinical-cases/extract: ExtractionRequest -> 200 ExtractionResponse; 422 validation, 502 extraction_failed, 503 extraction_unavailable, 504 extraction_timeout.
 - POST /api/v1/clinical-cases: ClinicalCaseCreate -> 201 ClinicalCase; Location /api/v1/clinical-cases/{id}; 422 validation, 503 database_unavailable.
+- GET /api/v1/clinical-cases: 200 ClinicalCasePage; page integer 1..1000000 (default 1), page_size integer 1..100 (default 20). Order created_at DESC, id DESC. Empty pages return items [] and has_more false; 422 invalid pagination, 503 database_unavailable. Public fields only.
 - GET /api/v1/clinical-cases/{id}: 200 ClinicalCase; 404 case_not_found, 422 malformed UUID, 503 database_unavailable.
 - POST /api/v1/clinical-cases/{id}/attempts: AttemptCreate -> 201 AttemptResult; 404 case_not_found, 422 validation, 503 database_unavailable.
 - GET /health: 200 {"status":"ok"}. GET /ready: verify database; 200 {"status":"ok"} or 503 database_unavailable.

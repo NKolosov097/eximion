@@ -977,3 +977,36 @@ textarea:focus-visible {
   outline: 2px solid var(--green);
   outline-offset: 2px;
 }
+
+.site-nav,
+.catalog-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.catalog-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+.catalog-list h2 {
+  margin-bottom: 8px;
+}
+.catalog-summary {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.catalog-pagination {
+  margin-top: 24px;
+}
+
+.external-link-icon {
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+.footer-credit {
+  display: grid;
+  gap: 4px;
+}

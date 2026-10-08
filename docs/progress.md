@@ -156,3 +156,21 @@ Current implementation: frontend9b33fe2; backendee46085. Final local/cloud/API/t
 - All six original findings fixed and three independent Astra post-fix reviewers now report no actionable findings. Assignment scope review is separate and complete.
 - Publication remains pending: automatic approval review twice rejected git push to the public NKolosov097/eximion remote, citing absence of explicit destination/payload authorization in its available user context. Additional scan checked6 outgoing commits/532 snapshots without private paths or known credentials. An explicit user approval request is pending. No push occurred, so hosted split CI has not run yet; equivalent checks passed locally. Current code and reports are committed locally.
 - Limits: manual screen-reader testing and the exact listener-registration cause inside the user's MetaMask profile were not checked. Existing upstream Starlette/httpx deprecation and favicon404 are unrelated. Telemetry is bounded best effort; this is a synthetic educational demonstration.
+
+
+### Case catalog (2026-10-08)
+
+- Added public bounded GET listing (page/page_size, items/has_more), ordered by created_at DESC then id DESC, using the existing answer-free public schema. No database migration.
+- Added uncached SSR /clinical-cases catalog, case links, previous/next navigation, empty and unavailable states, and visible All cases header navigation. Existing back-link selectors remain stable and now lead to the catalog.
+- Regenerated OpenAPI and frontend types. Backend: 74 tests passed against real PostgreSQL in isolated test schemas; mypy passed for 9 application files. Frontend: 37 tests, TypeScript and production build passed.
+- Isolated production-browser smoke passed catalog/detail navigation, pagination, empty/error/retry states, and no horizontal overflow at 320/390/768/1440px, alongside existing authoring/answer checks. The browser uses a synthetic mock API; PostgreSQL behavior is covered separately by integration tests.
+- Not committed, pushed or deployed in this implementation step. Existing upstream Starlette/httpx deprecation remains. Offset pages can shift when another author adds a case between page requests; the catalog is not a snapshot.
+
+### Navigation and browser regressions (2026-10-08)
+
+- Header: Home, Cases, Create case and Docs; Docs has a visible external-link icon and opens in a new tab with noopener/noreferrer. Footer links to Nikita Kolosov on GitHub.
+- Full local backend suite: 74 passed on isolated PostgreSQL test schemas; mypy: 9 files; deployment script tests: 4 passed. Frontend: 37 tests, typecheck and production build passed. Contract regeneration is stable.
+- Extended isolated E2E passed navigation, Docs popup, GitHub target, answer validation/100/0/error recovery, review gating/reset, catalog/retry/pagination and widths 320/390/768/1440.
+- Eight Windows/Chrome screenshot baselines cover home/catalog/case/author at desktop and mobile sizes; all reviewed and clean comparison passed. A controlled one-pixel baseline change failed comparison and generated diff output; restored baseline passed again.
+- Playwright 1.64.0 is pinned as a frontend dev dependency. E2E is included in CI with bundled Chromium. Screenshot comparisons are local Windows/Chrome checks; synthetic API fixtures avoid production writes and Gemini calls.
+- Cloud publication/verification follows this source commit.

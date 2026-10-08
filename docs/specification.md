@@ -5,7 +5,8 @@ Build an English-language educational clinical-case application using synthetic 
 ## User journeys
 1. Home links to authoring and a seeded demonstration case.
 2. At /clinical-cases/new, paste clinical text, extract an editable structured draft, review and correct every field, supply an independent reference diagnosis and accepted alternatives, then save and navigate to the case.
-3. At /clinical-cases/[id], server-render the public case, accept a diagnosis interactively, persist the attempt and show deterministic scoring and clear feedback.
+3. At /clinical-cases, browse saved cases newest first, open a case, and navigate pages. The header and All cases links lead here; the brand still leads home. Empty and unavailable states are explicit.
+4. At /clinical-cases/[id], server-render the public case, accept a diagnosis interactively, persist the attempt and show deterministic scoring and clear feedback.
 
 ## Invariants
 - The author supplies the reference. The LLM never supplies grading answers.
@@ -19,3 +20,8 @@ Build an English-language educational clinical-case application using synthetic 
 
 ## Acceptance
 Verify extraction validation/failures, author editing/save, server rendering, exact normalized grading, hidden answers, persistence across restart, migrations, generated-type drift, frontend build and browser interactions. Evaluate synthetic extraction examples with a reproducible harness that distinguishes live model results from offline tests. Record commands, outcomes and remaining limitations in docs/progress.md.
+
+## Site navigation and browser regression checks
+- Header exposes Home, Cases, Create case and API Docs; Docs opens in a new tab with a visible external-link icon and accessible notice.
+- Footer credits Nikita Kolosov with a link to https://github.com/NKolosov097.
+- Browser tests cover navigation and author/learner flows; repeatable screenshot comparisons cover desktop/mobile pages with stable synthetic data. Deploy frontend and backend after validation.

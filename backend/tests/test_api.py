@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 import pytest
@@ -7,10 +8,11 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from app import llm
+from app.cases import build_case
 from app.database import get_session
 from app.main import app
 from app.models import ClinicalCaseAcceptedAnswer, ClinicalCaseAttempt, ClinicalCaseRecord, ClinicalCaseSymptom
-from app.schemas import ClinicalCaseDraft
+from app.schemas import ClinicalCaseCreate, ClinicalCaseDraft
 from test_cases import VALID_CASE
 
 
@@ -142,3 +144,30 @@ def test_attempt_rejects_nul_without_persisting(postgres, client):
     assert response.status_code == 422
     with Session(engine) as session:
         assert session.scalar(select(func.count()).select_from(ClinicalCaseAttempt)) == 0
+
+
+def test_catalog_order_pagination_and_hidden_answers(postgres, client, monkeypatch):
+    engine, _ = postgres
+    assert client.get("/api/v1/clinical-cases").json() == {"items": [], "has_more": False}
+    with Session(engine) as session:
+        for identifier, day in [(1, 2), (2, 1), (3, 2)]:
+            record = build_case(ClinicalCaseCreate(**VALID_CASE))
+            record.id = UUID(int=identifier)
+            record.created_at = datetime(2026, 1, day, tzinfo=timezone.utc)
+            session.add(record)
+        session.commit()
+    monkeypatch.setenv("AUTHOR_API_KEY", "catalog-is-public")
+    first = client.get("/api/v1/clinical-cases?page_size=2").json()
+    second = client.get("/api/v1/clinical-cases?page_size=2&page=2").json()
+    assert [case["id"] for case in first["items"] + second["items"]] == [str(UUID(int=i)) for i in [3, 1, 2]]
+    assert first["has_more"] is True
+    assert second["has_more"] is False
+    for case in first["items"] + second["items"]:
+        assert set(case) == {"id", "title", "vignette", "symptoms", "age_years", "created_at"}
+        assert case["symptoms"] == ["Fever", "Cough"]
+    assert client.get("/api/v1/clinical-cases?page=3&page_size=2").json() == {"items": [], "has_more": False}
+
+
+@pytest.mark.parametrize("query", ["page=0", "page=-1", "page=1000001", "page=x", "page_size=0", "page_size=101"])
+def test_catalog_rejects_invalid_pagination(client, query):
+    assert client.get(f"/api/v1/clinical-cases?{query}").status_code == 422

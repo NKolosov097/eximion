@@ -3,11 +3,11 @@ import secrets
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, Request, Response
+from fastapi import Depends, FastAPI, Header, Query, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -15,7 +15,7 @@ from app import llm
 from app.cases import build_case, normalize_diagnosis, public_case
 from app.database import commit, get_session
 from app.models import ClinicalCaseAttempt, ClinicalCaseRecord
-from app.schemas import AttemptCreate, AttemptResult, ClinicalCase, ClinicalCaseCreate, ErrorResponse, ExtractionRequest, ExtractionResponse
+from app.schemas import AttemptCreate, AttemptResult, ClinicalCase, ClinicalCaseCreate, ClinicalCasePage, ErrorResponse, ExtractionRequest, ExtractionResponse
 from app.telemetry import TelemetryMiddleware, set_request_error, traced
 
 
@@ -111,6 +111,25 @@ def create_clinical_case(data: ClinicalCaseCreate, response: Response, session: 
     commit(session)
     response.headers["Location"] = f"/api/v1/clinical-cases/{record.id}"
     return public_case(record)
+
+
+@app.get("/api/v1/clinical-cases", response_model=ClinicalCasePage, responses=DATABASE_ERRORS)
+@traced("case.list")
+def list_clinical_cases(
+    session: SessionDependency,
+    page: Annotated[int, Query(ge=1, le=1_000_000)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    records = session.scalars(
+        select(ClinicalCaseRecord)
+        .order_by(ClinicalCaseRecord.created_at.desc(), ClinicalCaseRecord.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size + 1)
+    ).all()
+    return ClinicalCasePage(
+        items=[public_case(record) for record in records[:page_size]],
+        has_more=len(records) > page_size,
+    )
 
 
 @app.get("/api/v1/clinical-cases/{id}", response_model=ClinicalCase, responses=CASE_ERRORS)

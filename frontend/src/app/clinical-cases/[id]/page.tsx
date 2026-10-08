@@ -35,7 +35,7 @@ export default async function CasePage({ params }: CasePageProps) {
 
   return (
     <div className="case-page" data-testid="case-page">
-      <Link href="/" className="back-link" data-testid="case-back-home">
+      <Link href="/clinical-cases" className="back-link" data-testid="case-back-home">
         ← {messages.back}
       </Link>
       <div className="page-heading">

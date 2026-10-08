@@ -7,3 +7,5 @@ export type ExtractionRequest = components["schemas"]["ExtractionRequest"];
 export type ExtractionResponse = components["schemas"]["ExtractionResponse"];
 export type AttemptCreate = components["schemas"]["AttemptCreate"];
 export type AttemptResult = components["schemas"]["AttemptResult"];
+
+export type ClinicalCasePage = components["schemas"]["ClinicalCasePage"];

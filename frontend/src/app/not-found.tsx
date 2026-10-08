@@ -7,7 +7,7 @@ export default function NotFound() {
       <p className="eyebrow">404 / {messages.appName}</p>
       <h1>{messages.notFoundTitle}</h1>
       <p>{messages.notFoundDescription}</p>
-      <Link href="/" className="button" data-testid="case-not-found-home">
+      <Link href="/clinical-cases" className="button" data-testid="case-not-found-home">
         {messages.back}
       </Link>
     </div>

@@ -1,6 +1,10 @@
 export const messages = {
   appName: "Clinical Cases",
   skip: "Skip to content",
+  navHome: "Home",
+  navCases: "Cases",
+  docs: "Docs",
+  docsLabel: "API documentation (opens in a new tab)",
   home: "Clinical Cases home",
   descriptor: "Test assignment for Eximion",
   disclaimer:
@@ -8,6 +12,16 @@ export const messages = {
   create: "Create a case",
   demo: "Try the demo case",
   back: "All cases",
+  catalogDescription: "Browse saved learning cases, newest first.",
+  catalogEmpty: "No cases have been saved yet.",
+  catalogPageEmpty: "There are no cases on this page.",
+  catalogError: "Unable to load cases",
+  catalogLoading: "Loading clinical cases...",
+  pagination: "Case pages",
+  previous: "Previous page",
+  next: "Next page",
+  firstPage: "Back to first page",
+  pageNumber: (page: number) => `Page ${page}`,
   homeTitle: "From clinical clues to clear thinking.",
   homeDescription:
     "Turn a synthetic clinical note into an editable learning case, then practice recognizing the diagnosis.",

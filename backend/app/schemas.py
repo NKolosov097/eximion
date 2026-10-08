@@ -42,6 +42,11 @@ class ClinicalCase(ClinicalCaseDraft):
     created_at: datetime
 
 
+class ClinicalCasePage(BaseModel):
+    items: list[ClinicalCase]
+    has_more: bool
+
+
 class ExtractionRequest(RequestModel):
     source_text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=20, max_length=20000)]
 

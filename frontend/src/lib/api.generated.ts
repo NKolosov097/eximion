@@ -62,7 +62,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List Clinical Cases */
+        get: operations["list_clinical_cases_api_v1_clinical_cases_get"];
         put?: never;
         /** Create Clinical Case */
         post: operations["create_clinical_case_api_v1_clinical_cases_post"];
@@ -193,6 +194,13 @@ export interface components {
             symptoms: string[];
             /** Age Years */
             age_years?: number | null;
+        };
+        /** ClinicalCasePage */
+        ClinicalCasePage: {
+            /** Items */
+            items: components["schemas"]["ClinicalCase"][];
+            /** Has More */
+            has_more: boolean;
         };
         /** ErrorDetail */
         ErrorDetail: {
@@ -354,6 +362,47 @@ export interface operations {
             };
             /** @description Gateway Timeout */
             504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    list_clinical_cases_api_v1_clinical_cases_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicalCasePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
