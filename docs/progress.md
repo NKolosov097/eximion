@@ -51,3 +51,25 @@ Specification saved; API contract and implementation plan in preparation. Implem
 GCP billingEnabled remains false. User was asked to link a billing account. No Cloud SQL, Cloud Run deployment or live Gemini success is claimed. Once billing is enabled, run deploy.py, resolve any actual IAM/quota issues, run live harness and deployed smoke/browser checks, record URLs/revisions, then complete cloud tasks.
 
 GitHub remote is the user-supplied existing PUBLIC NKolosov097/eximion repository. Active gh account switched to NKolosov097 before repository writes. No new public repository created.
+
+## Published checkpoint
+
+- Repository: https://github.com/NKolosov097/eximion/tree/nkolosov/eximion
+- Verified implementation commit: fe2aea167ae2e8f0d637eb81e4d9616286c9fdfd.
+- GitHub Actions successful: https://github.com/NKolosov097/eximion/actions/runs/37727499581 (all checks, both Docker builds; 1m33s).
+- Final docker compose up -d --wait passed with an explicit healthy backend readiness probe. Final smoke passed, case 5152e291-c5f8-4146-8d93-81b10c7554ae.
+- Git working tree matched the remote after implementation push. No secret files tracked; only .env.example.
+- Non-failing upstream CI notices: older action majors are run under Node 24 by GitHub; ubuntu-latest scheduled migration notice. Application runtime remains pinned Node24.19.0/Python3.12.13.
+- Browser desktop 1440px and mobile 390px layouts visually inspected; no horizontal overflow.
+- Latest billing check: billingAccountName empty, billingEnabled false. Cloud deployment remains incomplete.
+
+## Resume after billing activation
+
+1. Verify gcloud billing projects describe eximion-511003 shows billingEnabled true.
+2. Run uv run --project backend python scripts/deploy.py --model gemini-3.5-flash-lite --model-location eu. All resources target this project only.
+3. Diagnose actual IAM/quota/build errors if any; do not silently substitute architecture or model.
+4. Run live extraction harness with authorized ADC/service identity; save report separately from offline-report.json.
+5. Load the private author key without printing it, run scripts/smoke.py against the deployed backend with --live, and exercise the deployed browser workflow.
+6. Record URLs, Cloud Run revisions, live evaluation results, persistence and remaining limitations; update plan and push verified changes.
+
+Local services are left running at http://localhost:3000 and http://localhost:8000. Stop with docker compose stop when desired; do not remove the database volume unless its data is intentionally disposable.
