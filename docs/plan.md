@@ -1,4 +1,4 @@
-﻿# Implementation plan and tasks
+# Implementation plan and tasks
 
 Single modular FastAPI application, SQLAlchemy/Alembic PostgreSQL, Next.js App Router/TypeScript and Google Gen AI SDK. Use Python 3.12, Node 24, PostgreSQL 17; resolve supported packages and commit lockfiles. No extra framework for state, UI or API SDK.
 
@@ -12,12 +12,12 @@ Contract changes require explicit coordination before implementation.
 ## Tasks
 - [x] Inspect workspace/rules and record initial state.
 - [x] Save specification and concrete API/LLM contract; check consistency.
-- [ ] Backend models, migration, API, grading, seed, PostgreSQL integration tests.
-- [ ] Frontend authoring, server-rendered case, attempts, accessible states and interaction tests.
-- [ ] Gemini extraction, validation/error handling, synthetic harness and offline tests.
-- [ ] Pin dependencies, generate OpenAPI and TypeScript with one command and drift gate.
-- [ ] Compose, Dockerfiles, CI, environment examples and runbook.
-- [ ] Run tests, migrations, builds, Compose smoke and browser journey; fix integration defects.
+- [x] Backend models, migration, API, grading, seed, PostgreSQL integration tests.
+- [x] Frontend authoring, server-rendered case, attempts, accessible states and interaction tests.
+- [x] Gemini extraction, validation/error handling, synthetic harness and offline tests.
+- [x] Pin dependencies, generate OpenAPI and TypeScript with one command and drift gate.
+- [x] Compose, Dockerfiles, CI, environment examples and runbook.
+- [x] Run tests, migrations, builds, Compose smoke and browser journey; fix integration defects.
 - [ ] GCP Frankfurt resources, billing/IAM check, Secret Manager, build/deploy, migration/seed jobs.
 - [ ] Live Gemini harness and deployed end-to-end checks; record actual URLs and revisions.
 - [ ] Final review against specification, limitations and small verified commits/push.

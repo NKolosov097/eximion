@@ -34,6 +34,7 @@ jobs:
       - run: uv sync --project backend --frozen
       - run: npm ci
         working-directory: frontend
+      - run: uv run --project backend python -m unittest discover -s scripts -p "test_*.py"
       - run: uv run --project backend python -m pytest backend/tests
       - run: uv run --project backend python scripts/generate-contract.py
       - run: git diff --exit-code -- docs/openapi.json frontend/src/lib/api.generated.ts

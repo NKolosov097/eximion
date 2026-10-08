@@ -25,7 +25,10 @@ def deploy(project, region, model, model_location):
     gcloud = find_gcloud()
 
     def call(*args, capture=False):
-        result = subprocess.run([gcloud, *args, "--project", project, "--quiet"], check=True, text=True, encoding="utf-8", stdout=subprocess.PIPE if capture else None)
+        try:
+            result = subprocess.run([gcloud, *args, "--project", project, "--quiet"], check=True, text=True, encoding="utf-8", stdout=subprocess.PIPE if capture else None)
+        except subprocess.CalledProcessError as error:
+            raise SystemExit(f"Cloud operation {args[0]} {args[1]} failed (exit {error.returncode}); command arguments suppressed.") from None
         return result.stdout.strip() if capture else None
 
     def exists(*args):
@@ -43,19 +46,23 @@ def deploy(project, region, model, model_location):
     for role in ["roles/aiplatform.user", "roles/cloudsql.client"]:
         call("projects", "add-iam-policy-binding", project, f"--member=serviceAccount:{service_account}", f"--role={role}", "--condition=None", "--format=none")
     if not exists("sql", "instances", "describe", "eximion-db"):
-        call("sql", "instances", "create", "eximion-db", "--database-version=POSTGRES_17", "--edition=ENTERPRISE", "--tier=db-f1-micro", "--region", region, "--storage-size=10", "--storage-type=SSD", "--availability-type=zonal", "--backup-start-time=03:00", "--deletion-protection")
+        call("sql", "instances", "create", "eximion-db", "--database-version=POSTGRES_17", "--edition=enterprise", "--tier=db-f1-micro", "--region", region, "--storage-size=10", "--storage-type=SSD", "--availability-type=zonal", "--backup-start-time=03:00", "--deletion-protection")
     if not exists("sql", "databases", "describe", "eximion", "--instance=eximion-db"):
         call("sql", "databases", "create", "eximion", "--instance=eximion-db")
     connection = call("sql", "instances", "describe", "eximion-db", "--format=value(connectionName)", capture=True)
     local = ROOT / ".local"
     local.mkdir(exist_ok=True)
     secret_file = local / "cloud-secrets.json"
+    users = json.loads(call("sql", "users", "list", "--instance=eximion-db", "--format=json", capture=True))
+    if not secret_file.exists() and any(user["name"] == "eximion" for user in users):
+        raise SystemExit("Existing SQL user found. Restore private local credentials before redeploying.")
+    if not secret_file.exists() and (exists("secrets", "describe", "eximion-database-url") or exists("secrets", "describe", "eximion-author-key")):
+        raise SystemExit("Existing cloud secrets found. Restore .local/cloud-secrets.json from your private backup before redeploying; refusing to generate mismatched credentials.")
     if not secret_file.exists():
         secret_file.write_text(json.dumps({"project": project, "db_password": secrets.token_hex(24), "author_api_key": secrets.token_hex(24)}), encoding="utf-8")
     credentials = json.loads(secret_file.read_text(encoding="utf-8"))
     if credentials["project"] != project:
         raise SystemExit("Local credentials belong to another project; refusing to reuse them.")
-    users = json.loads(call("sql", "users", "list", "--instance=eximion-db", "--format=json", capture=True))
     if not any(user["name"] == "eximion" for user in users):
         call("sql", "users", "create", "eximion", "--instance=eximion-db", "--password", credentials["db_password"])
     database_url = f"postgresql+psycopg://eximion:{credentials['db_password']}@/eximion?host=/cloudsql/{connection}"
@@ -94,6 +101,6 @@ if __name__ == "__main__":
     parser.add_argument("--project", default="eximion-511003")
     parser.add_argument("--region", default="europe-west3")
     parser.add_argument("--model", required=True)
-    parser.add_argument("--model-location", default="europe-west3")
+    parser.add_argument("--model-location", default="eu")
     options = parser.parse_args()
     deploy(options.project, options.region, options.model, options.model_location)
