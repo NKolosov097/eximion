@@ -1,4 +1,4 @@
-﻿name: verify
+name: verify
 on:
   push:
   pull_request:
@@ -8,11 +8,11 @@ jobs:
   typechecks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           version: '0.12.4'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24.19.0'
           cache: npm
@@ -26,11 +26,11 @@ jobs:
   unit-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           version: '0.12.4'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24.19.0'
           cache: npm
@@ -59,8 +59,8 @@ jobs:
       TEST_DATABASE_URL: postgresql+psycopg://eximion:ci-only-password@127.0.0.1:5432/eximion_test
       DATABASE_URL: postgresql+psycopg://eximion:ci-only-password@127.0.0.1:5432/eximion_test
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           version: '0.12.4'
       - run: uv sync --project backend --frozen
@@ -68,11 +68,11 @@ jobs:
   api-contract:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           version: '0.12.4'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '24.19.0'
       - run: uv sync --project backend --frozen
@@ -83,7 +83,7 @@ jobs:
   builds:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: docker compose config --quiet
       - run: docker build -t eximion-backend backend
       - run: docker build -t eximion-frontend --build-arg NEXT_PUBLIC_API_URL=http://localhost:8000 frontend
