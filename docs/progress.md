@@ -187,3 +187,8 @@ Current implementation: frontend9b33fe2; backendee46085. Final local/cloud/API/t
 - Source 0948007 adds three catalog skeleton cards with screen-reader status and reduced-motion support. Delayed-API browser checks prove placeholder-to-content replacement and no mobile overflow. Typecheck/build, E2E and all eight unchanged screenshot comparisons passed.
 - All seven CI jobs passed: https://github.com/NKolosov097/eximion/actions/runs/37795484030 . Frontend build 5cecc731-6dd7-4958-b80f-1fc6528f4803 succeeded; ready revision eximion-frontend-00006-c4p serves all traffic. Backend unchanged.
 - Live mobile browser verified streamed skeleton HTML, replacement by seven real cases, no overflow and no page errors.
+
+### Favicon release (2026-10-08)
+
+- Source d938a02 adds a small vector C icon in the application colors. Production build and isolated browser checks passed, including the emitted icon link and HTTP 200 SVG response. All CI checks passed: https://github.com/NKolosov097/eximion/actions/runs/37797574800 .
+- Frontend build e04b448e-d9fc-4550-8287-0d8b19eb6f47 succeeded; revision eximion-frontend-00007-5f2 serves 100% traffic. Live browser confirmed the favicon link and served SVG. Backend unchanged.
