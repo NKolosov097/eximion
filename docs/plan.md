@@ -48,4 +48,4 @@ Tests after implementation, without mandatory test-first. Backend integration us
 ## Catalog search and author feedback
 - [x] Add validated literal public-text search before pagination; regenerate API contract and test PostgreSQL matching/privacy.
 - [x] Add query-preserving catalog search, review cursor and reduced-motion-aware extraction indicator; verify unit and browser behavior.
-- [ ] Review updated visual baselines, pass CI, deploy both services and verify live.
+- [x] Review updated visual baselines, pass CI, deploy both services and verify live.
