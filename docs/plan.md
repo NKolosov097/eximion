@@ -85,4 +85,3 @@ Tests after implementation, without mandatory test-first. Backend integration us
 - [x] Align catalog search control heights and inset arrow; submit answer filter automatically with focused coverage.
 
 - [x] Replace manual search with a mounted client search form, 300ms debounce and immediate answer filter; focused tests verify draft/focus/history/timer behavior. Browser verification remains coordinated with the release owner.
-

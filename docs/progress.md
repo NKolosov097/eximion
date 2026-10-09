@@ -1,4 +1,4 @@
-﻿# Progress
+# Progress
 
 ## Initial inspection
 - Eximion exists and is empty, including hidden files. No existing changes to preserve.
@@ -248,3 +248,9 @@ Real account verification at 2026-10-09T03:50:03.740Z passed: two-user isolation
 
 Removed the Search button in favor of a 300ms debounce; Enter and answer-filter changes submit immediately. Browser checks verify focus/caret, continued typing, history, clearing and query preservation. Removed the ungraded reasoning input while retaining stored history. Refined modal/profile controls and Demo spacing; added two insert-only synthetic demo seeds, preserving the original home link. PostgreSQL seed preservation/idempotence and mypy passed. All 73 frontend tests, typecheck, production build, full browser harness, real local checks and sixteen reviewed Linux screenshot comparisons passed.
 
+
+## Catalog and account refinements - deployed verification
+
+Application source abb89e5 and browser-test follow-up 26fdecd passed all eight CI jobs in run 37882864064. The browser test now waits for rendered pagination reflecting the query instead of requestfinished on a streaming response; focus/caret and API assertions remain intact. Backend build 59427b58-00e8-4200-be30-220b52335305 and frontend build 8117c847-a260-4b07-8b40-dfe0a6b53a5b succeeded. Seed execution eximion-migrate-mcmdd added the two missing synthetic demos. Revisions eximion-backend-00010-6lq and eximion-frontend-00012-2p7 serve all traffic.
+
+Live verification at 2026-10-09T04:14:48.365Z passed: all three public seeds, original home demo link, no reasoning input, full-width modal controls, username/icon navigation, red right-aligned logout, equal catalog controls, automatic search with retained focus, immediate answer filtering with query preservation, mobile widths and logout. One synthetic test account was created; no clinical record was written and Gemini was not called.
