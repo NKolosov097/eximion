@@ -35,7 +35,7 @@ const listen = async (server) => {
     requests++;
     const requestPath = new URL(req.url, "http://localhost").pathname;
     const searchParams = new URL(req.url, "http://localhost").searchParams;
-    if (requestPath.endsWith("/management")) { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ can_edit: false, can_hide: false })); return; }
+    if (requestPath.endsWith("/management")) { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ can_edit: false, can_hide: false, can_restore: false })); return; }
     if (requestPath.endsWith("/attempts") && req.method === "POST") {
       latestAccountScore = 0;
       res.writeHead(201, { "Content-Type": "application/json" });
@@ -266,7 +266,7 @@ const listen = async (server) => {
         headers: request.headers(),
         body: request.method() === "POST" ? request.postDataJSON() : undefined,
       });
-      let body = request.url().endsWith("/auth/me") ? { user: null } : clinicalCase;
+      let body = request.url().endsWith("/auth/me") ? { user: null } : request.url().endsWith("/auth/login") ? account : clinicalCase;
       let status = 200;
       if (request.url().includes("/api/backend/analytics")) {
         if (holdAnalytics) {
@@ -284,7 +284,7 @@ const listen = async (server) => {
         if (holdExtraction) await new Promise((resolve) => { releaseExtraction = resolve; });
         body = { draft, warnings: [] };
       }
-      if (request.url().endsWith("/management")) body = { can_edit: false, can_hide: false };
+      if (request.url().endsWith("/management")) body = { can_edit: false, can_hide: false, can_restore: false };
       const isAttempt = request.url().endsWith("/attempts");
       if (isAttempt) assert.equal(request.postDataJSON().case_revision, clinicalCase.revision);
       if (isAttempt) {
@@ -432,6 +432,18 @@ const listen = async (server) => {
     await page.getByTestId("nav-create-case").filter({ visible: true }).click();
     await page.getByTestId("author-source-text").filter({ visible: true }).waitFor();
     await page.getByTestId("author-key").filter({ visible: true }).fill("memory-only-key");
+    await page.getByTestId("author-source-text").filter({ visible: true }).fill("Synthetic source retained through author sign-in.");
+    const extractsBeforeLogin = browserRequests.filter(request => request.path.endsWith("/extract")).length;
+    await page.getByTestId("author-extract-submit").filter({ visible: true }).click();
+    await page.getByRole("dialog").waitFor();
+    assert.equal(browserRequests.filter(request => request.path.endsWith("/extract")).length, extractsBeforeLogin);
+    await page.getByLabel("Username", { exact: true }).fill("browser_learner");
+    await page.getByLabel("Password", { exact: true }).fill("synthetic-password-123");
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await page.getByRole("dialog").waitFor({ state: "hidden" });
+    assert.equal(browserRequests.filter(request => request.path.endsWith("/extract")).length, extractsBeforeLogin, "Signing in never auto-extracts.");
+    assert.equal(await page.getByTestId("author-source-text").filter({ visible: true }).inputValue(), "Synthetic source retained through author sign-in.");
+    assert.equal(await page.getByRole("checkbox", { name: "I understand and want to submit as a guest." }).count(), 0);
     await page.getByTestId("author-source-text").filter({ visible: true }).fill(" ".repeat(20) + "short");
     await page.getByTestId("author-extract-submit").filter({ visible: true }).click();
     assert.equal(
@@ -481,7 +493,6 @@ const listen = async (server) => {
     const beforeUnreviewedSave = browserRequests.length;
     assert(await page.getByTestId("author-save-submit").filter({ visible: true }).isDisabled(), "Saving requires explicit review.");
     assert.equal(browserRequests.length, beforeUnreviewedSave);
-    await page.getByRole("checkbox", { name: "I understand and want to submit as a guest." }).check();
     await page.getByTestId("author-review-confirmation").filter({ visible: true }).check();
     await page.getByTestId("author-draft-title").filter({ visible: true }).fill("Edited synthetic case");
     assert.equal(await page.getByTestId("author-review-confirmation").filter({ visible: true }).isChecked(), false);
@@ -499,7 +510,6 @@ const listen = async (server) => {
       );
     }
     await page.getByTestId("author-draft-title").filter({ visible: true }).fill(emoji.repeat(121));
-    await page.getByRole("checkbox", { name: "I understand and want to submit as a guest." }).check();
     await page.getByTestId("author-review-confirmation").filter({ visible: true }).check();
     await page.getByTestId("author-save-submit").filter({ visible: true }).click();
     assert.equal(
@@ -517,7 +527,6 @@ const listen = async (server) => {
       "save-error",
     );
     await page.getByTestId("author-draft-title").filter({ visible: true }).fill(emoji.repeat(120));
-    await page.getByRole("checkbox", { name: "I understand and want to submit as a guest." }).check();
     await page.getByTestId("author-review-confirmation").filter({ visible: true }).check();
     for (const width of [320, 390, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });

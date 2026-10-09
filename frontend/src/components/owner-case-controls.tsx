@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { CaseActions } from "./case-actions";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { displayError, request } from "@/lib/api";
@@ -17,23 +17,23 @@ export function OwnerCaseControls({ id, revision, archived }: { id: string; revi
   useEffect(() => {
     let active = true;
     setPermissions(null); setError("");
-    if (user && !archived) request<CaseManagement>(`/api/v1/clinical-cases/${id}/management`)
+    if (user) request<CaseManagement>(`/api/v1/clinical-cases/${id}/management`)
       .then(data => { if (active) setPermissions(data); })
       .catch(error => { if (active) setError(displayError(error)); });
     return () => { active = false; };
   }, [id, revision, archived, user, retry]);
-  async function hide() {
-    if (!confirm("Hide this case? It will leave the catalog and stop accepting answers. Existing history will be preserved.")) return;
+  async function toggleVisibility() {
+    if (!archived && !confirm("Hide this case? It will leave the catalog and stop accepting answers. Existing history will be preserved.")) return;
     setPending(true); setError("");
     try {
-      await request(`/api/v1/clinical-cases/${id}`, { method: "DELETE" });
+      await request(`/api/v1/clinical-cases/${id}${archived ? "/restore" : ""}`, { method: archived ? "POST" : "DELETE" });
       setPermissions(null); router.refresh();
     } catch (error) { setError(displayError(error)); }
     finally { setPending(false); }
   }
-  if (loading || !user || archived) return null;
-  return <>
-    {permissions?.can_edit && <div className="account-actions"><Link className="button button-secondary" href={`/clinical-cases/${id}/edit`}>Edit case</Link>{permissions.can_hide && <button className="button button-secondary" onClick={hide} disabled={pending}>{pending ? "Hiding..." : "Hide case"}</button>}</div>}
+  if (loading || !user) return null;
+  return <div className="owner-case-controls">
+    {permissions && (permissions.can_hide || permissions.can_restore) && <CaseActions id={id} hidden={archived} canEdit={permissions.can_edit} pending={pending} onToggle={toggleVisibility} />}
     {error && <p role="alert" className="error-message">{error} <button className="text-link" onClick={() => setRetry(value => value + 1)}>Retry case controls</button></p>}
-  </>;
+  </div>;
 }

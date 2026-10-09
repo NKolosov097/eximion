@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { displayError, request } from "@/lib/api";
 import type { Profile } from "@/lib/types";
+import { CaseActions } from "./case-actions";
 import { useSession } from "./session-provider";
 
 export function AccountDashboard() {
@@ -27,10 +28,10 @@ export function AccountDashboard() {
     catch (error) { setError(displayError(error)); }
     finally { setPending(false); }
   }
-  async function archive(id: string) {
-    if (!confirm("Hide this case? It will leave the catalog and stop accepting answers. Existing history will be preserved.")) return;
+  async function toggleVisibility(id: string, hidden: boolean) {
+    if (!hidden && !confirm("Hide this case? It will leave the catalog and stop accepting answers. Existing history will be preserved.")) return;
     setPending(true); setError("");
-    try { await request(`/api/v1/clinical-cases/${id}`, { method: "DELETE" }); setRevision(r => r + 1); router.refresh(); }
+    try { await request(`/api/v1/clinical-cases/${id}${hidden ? "/restore" : ""}`, { method: hidden ? "POST" : "DELETE" }); setRevision(r => r + 1); router.refresh(); }
     catch (error) { setError(displayError(error)); }
     finally { setPending(false); }
   }
@@ -48,7 +49,7 @@ export function AccountDashboard() {
       <div className="account-actions">{page>1 && <button className="button button-secondary" onClick={() => setPage(page-1)}>Previous answers</button>}{profile.has_more && <button className="button" onClick={() => setPage(page+1)}>Next answers</button>}</div>
       <h2>My cases</h2><p className="field-hint">Editing preserves previous answers and their scores. Hide removes a case from the catalog and preserves its history.</p>
       {!profile.cases.length && <p>No owned cases yet.</p>}
-      <ul className="profile-list">{profile.cases.map(item => <li className="panel" key={item.id}><h3><Link className="text-link" href={`/clinical-cases/${item.id}`}>{item.title}</Link>{item.archived && " (hidden)"}</h3><div className="account-actions">{item.can_edit && <Link className="button button-secondary" href={`/clinical-cases/${item.id}/edit`}>Edit case</Link>}{!item.archived && <button className="button button-secondary" disabled={pending} onClick={() => archive(item.id)}>Hide case</button>}</div></li>)}</ul>
+      <ul className="profile-list">{profile.cases.map(item => <li className="panel" key={item.id}><div className="case-title-row"><h3><Link className="text-link" href={`/clinical-cases/${item.id}`}>{item.title}</Link>{item.archived && " (hidden)"}</h3><CaseActions id={item.id} hidden={item.archived} canEdit={item.can_edit} pending={pending} onToggle={() => toggleVisibility(item.id, item.archived)} /></div></li>)}</ul>
       <div className="account-actions">{casePage>1 && <button className="button button-secondary" onClick={() => setCasePage(casePage-1)}>Previous cases</button>}{profile.cases_has_more && <button className="button" onClick={() => setCasePage(casePage+1)}>Next cases</button>}</div>
     </>}
   </div>;

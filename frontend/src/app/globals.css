@@ -1328,3 +1328,12 @@ textarea:focus-visible {
   background-repeat: no-repeat;
   background-position: right 12px center;
 }
+
+.case-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.case-title-row > h1, .case-title-row > h3 { min-width: 0; overflow-wrap: anywhere; margin-bottom: 0; }
+.owner-case-controls, .case-actions { flex-shrink: 0; }
+.case-actions { display: flex; gap: 8px; }
+.case-icon-button { width: 44px; height: 44px; min-height: 44px; padding: 10px; display: inline-flex; align-items: center; justify-content: center; }
+.case-icon-button svg { width: 22px; height: 22px; }
+.owner-case-controls:empty { display: none; }
+.owner-case-controls .error-message { max-width: 220px; }

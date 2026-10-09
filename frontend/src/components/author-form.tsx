@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { useSession } from "./session-provider";
-import { GuestSubmissionNotice } from "./guest-submission-notice";
 import { useRouter } from "next/navigation";
 import { ApiError, displayError, request } from "@/lib/api";
 import { messages } from "@/lib/messages";
@@ -20,9 +19,7 @@ type AuthorPendingState = "extract" | "save" | null;
 
 export function AuthorForm() {
   const router = useRouter();
-  const { user, loading: sessionLoading } = useSession();
-  const [guestAcknowledged, setGuestAcknowledged] = useState(false);
-  useEffect(() => { setGuestAcknowledged(false); }, [user?.id]);
+  const { user, loading: sessionLoading, openLogin } = useSession();
   const [source, setSource] = useState("");
   const [authorKey, setAuthorKey] = useState("");
   const [draft, setDraft] = useState<ClinicalCaseDraft | null>(null);
@@ -126,6 +123,8 @@ export function AuthorForm() {
 
   async function extract(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pending || sessionLoading) return;
+    if (!user) { openLogin(); return; }
     const validation = textError(source, 20, 20000, false);
     setSourceInvalid(Boolean(validation));
     if (validation) {
@@ -157,6 +156,7 @@ export function AuthorForm() {
       setSaveInvalidField("");
     } catch (error) {
       setExtractError(displayError(error));
+      if (error instanceof ApiError && (error.code === "sign_in_required" || error.code === "session_expired")) openLogin();
       setSourceInvalid(error instanceof ApiError && error.status === 422);
     } finally {
       setPending(null);
@@ -166,7 +166,8 @@ export function AuthorForm() {
   async function save(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaveError("");
-    if (!draft || sessionLoading || (!user && !guestAcknowledged)) return;
+    if (!draft || pending || sessionLoading) return;
+    if (!user) { openLogin(); return; }
     const symptomList = lines(symptoms);
     const acceptedAnswers = lines(alternatives);
     const validation = [
@@ -201,12 +202,11 @@ export function AuthorForm() {
       return;
     }
     setPending("save");
-    const body: ClinicalCaseCreate = {
+    const body: Omit<ClinicalCaseCreate, "guest_acknowledged"> = {
       ...draft,
       symptoms: symptomList,
       reference_diagnosis: reference,
       accepted_answers: acceptedAnswers,
-      guest_acknowledged: !user && guestAcknowledged,
     };
     try {
       const result = await request<ClinicalCase>("/api/v1/clinical-cases", {
@@ -218,6 +218,7 @@ export function AuthorForm() {
       router.push(`/clinical-cases/${result.id}`);
     } catch (error) {
       setSaveError(displayError(error));
+      if (error instanceof ApiError && (error.code === "sign_in_required" || error.code === "session_expired")) openLogin();
       setPending(null);
     }
   }
@@ -232,11 +233,12 @@ export function AuthorForm() {
         aria-busy={pending === "extract"}
         aria-describedby={extractError ? "extract-error" : undefined}
       >
+        {!user && !sessionLoading && <p className="guest-notice">Sign in to extract and create cases. You can enter text first; signing in keeps your work. <button type="button" className="text-link" onClick={openLogin}>Sign in without losing your work</button></p>}
         <div className="section-heading">
           <h2>{messages.sourceTitle}</h2>
           <p>{messages.sourceDescription}</p>
         </div>
-        <fieldset disabled={pending !== null}>
+        <fieldset disabled={pending !== null || sessionLoading}>
           <label htmlFor="source-text">{messages.sourceLabel}</label>
           <textarea
             id="source-text"
@@ -333,7 +335,7 @@ export function AuthorForm() {
             setSaveError("");
           }}
         >
-          <fieldset disabled={pending !== null}>
+          <fieldset disabled={pending !== null || sessionLoading}>
             <div className="section-heading">
               <h2>{messages.draftTitle}</h2>
               <p>{messages.draftDescription}</p>
@@ -506,13 +508,13 @@ export function AuthorForm() {
                 {saveError}
               </p>
             )}
-            <GuestSubmissionNotice kind="case" acknowledged={guestAcknowledged} onChange={setGuestAcknowledged} disabled={pending !== null} />
+            <p className="field-hint">{user ? `This case will be saved to ${user.username}'s profile.` : "Sign in to save your case. Your entered fields will stay here."}</p>
             <p className="field-hint">Signing in links this case to your profile; the Author key is still required. You can edit or hide your own cases. Previous answers keep their original case and score.</p>
             <div className="save-actions">
               <button
                 className="button"
                 type="submit"
-                disabled={!reviewed || sessionLoading || (!user && !guestAcknowledged)}
+                disabled={!reviewed || sessionLoading}
                 data-testid="author-save-submit"
               >
                 {pending === "save" ? messages.saving : messages.save}

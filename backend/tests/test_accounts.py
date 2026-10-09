@@ -48,10 +48,16 @@ def test_sessions_validation_expiry_and_logout(client, postgres):
     assert client.get("/api/v1/profile").status_code == 401
 
 
-def test_guest_confirmation_and_no_later_claim(client):
+def test_guest_confirmation_and_no_later_claim(client, postgres):
     payload = {**VALID_CASE,"guest_acknowledged":False}
-    assert client.post("/api/v1/clinical-cases",json=payload).status_code == 422
-    case = client.post("/api/v1/clinical-cases",json=VALID_CASE).json()
+    assert client.post("/api/v1/clinical-cases",json=payload).status_code == 401
+    from app.cases import build_case
+    from app.schemas import ClinicalCaseCreate
+    with Session(postgres[0]) as session:
+        record = build_case(ClinicalCaseCreate(**VALID_CASE))
+        session.add(record)
+        session.commit()
+        case = {"id": str(record.id)}
     url = f"/api/v1/clinical-cases/{case['id']}"
     assert client.post(url+"/attempts",json={"diagnosis":"Flu"}).status_code == 422
     assert client.post(url+"/attempts",json={"diagnosis":"Flu","guest_acknowledged":True}).status_code == 201
@@ -101,7 +107,7 @@ def test_ownership_grading_history_filter_edit_archive(client, postgres):
 
 @pytest.mark.parametrize("extra",[{"alternative_diagnoses":["a"]*6},{"alternative_diagnoses":[""]},{"alternative_diagnoses":["a"*201]},{"reasoning":"a"*2001},{"reasoning":"bad\x00text"},{"user_id":"00000000-0000-0000-0000-000000000000"}])
 def test_attempt_trust_boundary(client, extra):
-    case = client.post("/api/v1/clinical-cases",json=VALID_CASE).json()
+    case = client.post("/api/v1/clinical-cases",json=VALID_CASE,headers=register(client)).json()
     result = client.post(f"/api/v1/clinical-cases/{case['id']}/attempts",json={"diagnosis":"Flu","guest_acknowledged":True,**extra})
     assert result.status_code == 422
 
@@ -179,9 +185,9 @@ def test_case_revisions_preserve_history_reject_stale_and_hide(client, postgres)
     case = client.post("/api/v1/clinical-cases", json=VALID_CASE, headers=alice).json()
     url = f"/api/v1/clinical-cases/{case['id']}"
     owner = client.get(url + "/management", headers=alice)
-    assert owner.json() == {"can_edit": True, "can_hide": True}
+    assert owner.json() == {"can_edit": True, "can_hide": True, "can_restore": False}
     assert owner.headers["cache-control"] == "no-store"
-    assert client.get(url + "/management", headers=bob).json() == {"can_edit": False, "can_hide": False}
+    assert client.get(url + "/management", headers=bob).json() == {"can_edit": False, "can_hide": False, "can_restore": False}
     assert client.get(url + "/management").status_code == 401
     first = client.post(url + "/attempts", headers=bob, json={"diagnosis": "Flu", "case_revision": 1})
     assert first.status_code == 201 and first.json()["score"] == 100
@@ -205,7 +211,7 @@ def test_case_revisions_preserve_history_reject_stale_and_hide(client, postgres)
     assert client.put(url, json=updated, headers=bob).status_code == 404
     assert client.delete(url, headers=bob).status_code == 404
     assert client.delete(url, headers=alice).status_code == 200
-    assert client.get(url + "/management", headers=alice).json() == {"can_edit": False, "can_hide": False}
+    assert client.get(url + "/management", headers=alice).json() == {"can_edit": False, "can_hide": False, "can_restore": True}
     assert client.get("/api/v1/clinical-cases").json()["items"] == []
     assert client.put(url, json=updated, headers=alice).status_code == 409
     assert client.post(url + "/attempts", headers=bob, json={"diagnosis": "Asthma", "case_revision": 2}).status_code == 409
@@ -261,3 +267,38 @@ def test_concurrent_edit_rejects_waiting_stale_answer(client, monkeypatch):
         assert edit.result(timeout=10).status_code == 200
         assert attempt.result(timeout=10).json()["error"]["code"] == "case_changed"
     assert client.get("/api/v1/profile", headers=alice).json()["attempt_count"] == 0
+
+
+def test_creation_and_extraction_require_account_even_with_author_key(client, monkeypatch):
+    from unittest.mock import AsyncMock
+    from app import llm
+    monkeypatch.setenv("AUTHOR_API_KEY", "author-test-key")
+    extract = AsyncMock()
+    monkeypatch.setattr(llm, "extract_case", extract)
+    for path, body in [("/api/v1/clinical-cases", VALID_CASE), ("/api/v1/clinical-cases/extract", {"source_text": "Synthetic clinical case source text."})]:
+        response = client.post(path, json=body, headers={"X-Author-Key": "author-test-key"})
+        assert response.status_code == 401 and response.json()["error"]["code"] == "sign_in_required"
+    extract.assert_not_called()
+    alice = register(client)
+    created = client.post("/api/v1/clinical-cases", json=VALID_CASE, headers={**alice, "X-Author-Key": "author-test-key"})
+    assert created.status_code == 201
+    assert client.get("/api/v1/profile", headers=alice).json()["cases"][0]["id"] == created.json()["id"]
+
+
+def test_restore_is_owner_only_and_preserves_revision_and_answers(client):
+    alice, bob = register(client), register(client, "bobby")
+    case = client.post("/api/v1/clinical-cases", json=VALID_CASE, headers=alice).json()
+    url = f"/api/v1/clinical-cases/{case['id']}"
+    result = client.post(url + "/attempts", json={"diagnosis": "Flu", "guest_acknowledged": True, "case_revision": 1})
+    assert result.status_code == 201 and result.json()["score"] == 100
+    assert client.delete(url, headers=alice).status_code == 200
+    assert client.post(url + "/restore").status_code == 401
+    assert client.post(url + "/restore", headers=bob).status_code == 404
+    assert client.get(url + "/management", headers=bob).json() == {"can_edit": False, "can_hide": False, "can_restore": False}
+    for _ in range(2):
+        assert client.post(url + "/restore", headers=alice).json() == {"archived": False}
+    visible = client.get(url).json()
+    assert visible["revision"] == 1 and not visible["archived"]
+    assert client.get("/api/v1/clinical-cases").json()["items"][0]["id"] == case["id"]
+    assert client.get(url + "/management", headers=alice).json() == {"can_edit": True, "can_hide": True, "can_restore": False}
+    assert client.post(url + "/attempts", json={"diagnosis": "Flu", "guest_acknowledged": True, "case_revision": 1}).status_code == 201

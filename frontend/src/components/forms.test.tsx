@@ -10,10 +10,10 @@ import { AuthorForm } from "./author-form";
 import { AttemptForm } from "./attempt-form";
 import { messages } from "@/lib/messages";
 
-const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+const { push, openLogin } = vi.hoisted(() => ({ push: vi.fn(), openLogin: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }));
 vi.mock("@/components/session-provider", () => ({
-  useSession: () => ({ user: { id: "learner-id", username: "learner" }, loading: false, refresh: vi.fn(), openLogin: vi.fn() }),
+  useSession: () => ({ user: { id: "learner-id", username: "learner" }, loading: false, refresh: vi.fn(), openLogin }),
 }));
 
 afterEach(() => {
@@ -402,4 +402,14 @@ it("associates an unauthorized extraction with the author key", async () => {
   fireEvent.change(key, { target: { value: "corrected-key" } });
   expect(key.getAttribute("aria-invalid")).toBe("false");
   expect(screen.queryByTestId("author-extract-error")).toBeNull();
+});
+
+
+it("keeps an invalid Author key error on the form without opening account login", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(response({ error: { code: "unauthorized", message: "A valid author key is required." } }, 401))));
+  render(<AuthorForm />);
+  fireEvent.change(screen.getByTestId("author-source-text"), { target: { value: "A synthetic patient has fever and cough." } });
+  fireEvent.submit(screen.getByTestId("author-extract-form"));
+  expect((await screen.findByTestId("author-extract-error")).textContent).toContain("author key");
+  expect(openLogin).not.toHaveBeenCalled();
 });

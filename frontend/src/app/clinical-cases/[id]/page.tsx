@@ -52,10 +52,9 @@ export default async function CasePage({ params }: CasePageProps) {
       </Link>
       <div className="page-heading">
         <p className="eyebrow">{messages.practiceEyebrow} {DEMO_CASE_IDS.includes(clinicalCase.id) && <span className="age-badge demo-badge" data-testid="case-demo-badge">{messages.demoBadge}</span>}</p>
-        <h1 data-testid="case-title">{clinicalCase.title}</h1>
+        <div className="case-title-row"><h1 data-testid="case-title">{clinicalCase.title}</h1><OwnerCaseControls id={clinicalCase.id} revision={clinicalCase.revision ?? 1} archived={clinicalCase.archived ?? false} /></div>
         <p className="lead">{messages.practiceDescription}</p>
       </div>
-      <OwnerCaseControls id={clinicalCase.id} revision={clinicalCase.revision ?? 1} archived={clinicalCase.archived ?? false} />
       <div className="case-layout">
         <article className="panel case-vignette">
           <div className="case-section-top">

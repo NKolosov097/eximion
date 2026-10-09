@@ -245,6 +245,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/clinical-cases/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore Owned Case */
+        post: operations["restore_owned_case_api_v1_clinical_cases__id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -390,6 +407,8 @@ export interface components {
             can_edit: boolean;
             /** Can Hide */
             can_hide: boolean;
+            /** Can Restore */
+            can_restore: boolean;
         };
         /** CaseSnapshot */
         CaseSnapshot: {
@@ -765,6 +784,7 @@ export interface operations {
             query?: never;
             header?: {
                 "x-author-key"?: string | null;
+                authorization?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -1243,6 +1263,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClinicalCaseCreate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_owned_case_api_v1_clinical_cases__id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

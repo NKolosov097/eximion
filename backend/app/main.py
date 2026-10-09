@@ -103,7 +103,7 @@ def ready(session: SessionDependency):
 
 @app.post("/api/v1/clinical-cases/extract", response_model=ExtractionResponse, dependencies=[Depends(require_author)], responses={status: {"model": ErrorResponse} for status in (401, 502, 503, 504)})
 @traced("case.extract")
-async def extract_clinical_case(data: ExtractionRequest):
+async def extract_clinical_case(data: ExtractionRequest, user: CurrentUser):
     try:
         draft = await llm.extract_case(data.source_text)
     except llm.ExtractionTimeout:
@@ -117,10 +117,9 @@ async def extract_clinical_case(data: ExtractionRequest):
 
 @app.post("/api/v1/clinical-cases", response_model=ClinicalCase, status_code=201, dependencies=[Depends(require_author)], responses={401: {"model": ErrorResponse}, **DATABASE_ERRORS})
 @traced("case.create")
-def create_clinical_case(data: ClinicalCaseCreate, response: Response, session: SessionDependency, user: OptionalUser):
-    require_guest_ack(user, data.guest_acknowledged)
+def create_clinical_case(data: ClinicalCaseCreate, response: Response, session: SessionDependency, user: CurrentUser):
     record = build_case(data)
-    record.owner_id = user.id if user else None
+    record.owner_id = user.id
     session.add(record)
     commit(session)
     response.headers["Location"] = f"/api/v1/clinical-cases/{record.id}"
@@ -289,7 +288,7 @@ def case_management(id: UUID, user: CurrentUser, response: Response, session: Se
     response.headers["Cache-Control"] = "no-store"
     record = find_case(id, session)
     allowed = record.owner_id == user.id and record.archived_at is None
-    return CaseManagement(can_edit=allowed, can_hide=allowed)
+    return CaseManagement(can_edit=allowed, can_hide=allowed, can_restore=record.owner_id == user.id and record.archived_at is not None)
 
 
 @app.get("/api/v1/clinical-cases/{id}/edit", response_model=ClinicalCaseCreate)
@@ -331,3 +330,11 @@ def archive_owned_case(id: UUID, user: CurrentUser, session: SessionDependency):
     record.archived_at = record.archived_at or utc_now()
     commit(session)
     return {"archived": True}
+
+
+@app.post("/api/v1/clinical-cases/{id}/restore")
+def restore_owned_case(id: UUID, user: CurrentUser, session: SessionDependency):
+    record = owned_case(id, session, user)
+    record.archived_at = None
+    commit(session)
+    return {"archived": False}

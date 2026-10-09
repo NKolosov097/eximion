@@ -24,7 +24,7 @@ from test_cases import VALID_CASE
 
 
 @pytest.fixture
-def observed(monkeypatch):
+def observed(monkeypatch, author_identity):
     exporter = InMemorySpanExporter()
     provider = TracerProvider(sampler=ALWAYS_ON, resource=Resource({"service.name": "test"}))
     provider.add_span_processor(SimpleSpanProcessor(exporter))

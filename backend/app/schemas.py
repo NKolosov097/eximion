@@ -123,6 +123,7 @@ class OwnedCase(BaseModel):
 class CaseManagement(BaseModel):
     can_edit: bool
     can_hide: bool
+    can_restore: bool
 
 
 class Profile(BaseModel):

@@ -233,6 +233,22 @@
               ],
               "title": "X-Author-Key"
             }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "requestBody": {
@@ -1032,6 +1048,60 @@
           }
         }
       }
+    },
+    "/api/v1/clinical-cases/{id}/restore": {
+      "post": {
+        "summary": "Restore Owned Case",
+        "operationId": "restore_owned_case_api_v1_clinical_cases__id__restore_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1340,12 +1410,17 @@
           "can_hide": {
             "type": "boolean",
             "title": "Can Hide"
+          },
+          "can_restore": {
+            "type": "boolean",
+            "title": "Can Restore"
           }
         },
         "type": "object",
         "required": [
           "can_edit",
-          "can_hide"
+          "can_hide",
+          "can_restore"
         ],
         "title": "CaseManagement"
       },

@@ -270,3 +270,9 @@ Validation: 95 backend tests against dedicated PostgreSQL schemas, 77 frontend t
 Source 2c62eff passed all eight jobs in CI run 37900134054. Backend build a26bb8e9-edfc-4d19-950b-2d29d74c75db and frontend build ec9f48f5-7d57-4220-9edf-359f87e33fe8 succeeded. Migration execution eximion-migrate-dt2jz completed before rollout. Revisions eximion-backend-00011-cj7 and eximion-frontend-00014-6cp serve all traffic.
 
 Live verification at 2026-10-09T07:42:59.238Z passed: owner opens the case from Cases and uses both actions, edits after another user answered, original title/score remain in private history, stale answers are rejected, subsequent answers use the new key, another user cannot edit or hide, and hiding removes the case from the catalog while retaining answers. Two synthetic accounts and one synthetic case were created; case 36262824-c29a-4c8a-863f-0f17a5b299bf was hidden afterwards. Gemini was not called. Restoring hidden cases is not included.
+
+## Owner icons and signed-in authoring - local verification
+
+Owner actions are icon buttons aligned to the right of case titles in detail and profile views. Hide/show is reversible and preserves versions and history. Extraction and creation require a signed-in account plus the existing Author key; guests can still answer. Signing in preserves author fields without automatically submitting them.
+
+Validation: 97 backend tests plus two smoke tests, 78 frontend tests, mypy, TypeScript, production build, full Linux browser harness and sixteen reviewed screenshot comparisons passed. Real local browser/API checks verified 44px owner controls at desktop/mobile widths, guest authoring denial, guest answers, edit-after-answer history, stale revision rejection, cross-user denial and hide/restore. Synthetic cases were hidden after checks. No Gemini request was made.

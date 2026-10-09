@@ -43,3 +43,22 @@ def pytest_collection_modifyitems(items):
     for item in items:
         marker = "integration" if "postgres" in item.fixturenames else "unit"
         item.add_marker(getattr(pytest.mark, marker))
+
+
+@pytest.fixture
+def author_identity(request):
+    from app.auth import require_user
+    from app.main import app
+    from app.models import User
+    from sqlalchemy.orm import Session
+    user = User(id=uuid4(), username="fixture_author", password_hash="unused")
+    if "postgres" in request.fixturenames:
+        engine, _ = request.getfixturevalue("postgres")
+        with Session(engine, expire_on_commit=False) as session:
+            session.add(user)
+            session.commit()
+    app.dependency_overrides[require_user] = lambda: user
+    try:
+        yield user
+    finally:
+        app.dependency_overrides.pop(require_user, None)

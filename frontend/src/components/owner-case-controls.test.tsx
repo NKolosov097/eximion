@@ -11,7 +11,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); session.
 
 describe("owner detail actions", () => {
   it("shows edit and hide only with private owner permissions and confirms hiding", async () => {
-    const fetch = vi.fn().mockResolvedValueOnce(response({ can_edit: true, can_hide: true })).mockResolvedValue(response({ archived: true }));
+    const fetch = vi.fn().mockResolvedValueOnce(response({ can_edit: true, can_hide: true, can_restore: false })).mockResolvedValue(response({ archived: true }));
     vi.stubGlobal("fetch", fetch);
     const confirm = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true); vi.stubGlobal("confirm", confirm);
     render(<OwnerCaseControls id="case-id" revision={2} archived={false} />);
@@ -25,7 +25,7 @@ describe("owner detail actions", () => {
     expect(screen.queryByRole("link", { name: "Edit case" })).toBeNull();
   });
   it("shows failure and retains actions for retry", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(response({ can_edit: true, can_hide: true })).mockResolvedValue(response({ error: { message: "Unavailable" } }, 503)));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(response({ can_edit: true, can_hide: true, can_restore: false })).mockResolvedValue(response({ error: { message: "Unavailable" } }, 503)));
     vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
     render(<OwnerCaseControls id="case-id" revision={1} archived={false} />);
     fireEvent.click(await screen.findByRole("button", { name: "Hide case" }));
@@ -34,7 +34,7 @@ describe("owner detail actions", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
   it("does not expose controls to other users, guests or hidden cases", async () => {
-    const fetch = vi.fn().mockResolvedValue(response({ can_edit: false, can_hide: false })); vi.stubGlobal("fetch", fetch);
+    const fetch = vi.fn().mockResolvedValue(response({ can_edit: false, can_hide: false, can_restore: false })); vi.stubGlobal("fetch", fetch);
     const view = render(<OwnerCaseControls id="case-id" revision={1} archived={false} />);
     await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
     expect(screen.queryByRole("link")).toBeNull();
@@ -44,4 +44,20 @@ describe("owner detail actions", () => {
     view.rerender(<OwnerCaseControls id="case-id" revision={1} archived={true} />);
     expect(fetch).toHaveBeenCalledOnce();
   });
+});
+
+
+it("shows a crossed-eye restore action for hidden owned cases", async () => {
+  const fetch = vi.fn().mockResolvedValueOnce(response({ can_edit: false, can_hide: false, can_restore: true })).mockResolvedValue(response({ archived: false }));
+  vi.stubGlobal("fetch", fetch);
+  render(<OwnerCaseControls id="case-id" revision={2} archived={true} />);
+  const button = await screen.findByRole("button", { name: "Show case" });
+  expect(button.getAttribute("title")).toBe("Show case");
+  expect(button.textContent).toBe("");
+  expect(button.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+  expect(screen.queryByRole("link", { name: "Edit case" })).toBeNull();
+  fireEvent.click(button);
+  await waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+  expect(fetch.mock.calls[1][0]).toBe("/api/backend/clinical-cases/case-id/restore");
+  expect(fetch.mock.calls[1][1].method).toBe("POST");
 });

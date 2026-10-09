@@ -17,7 +17,7 @@ from test_cases import VALID_CASE
 
 
 @pytest.fixture
-def client(monkeypatch):
+def client(monkeypatch, author_identity):
     monkeypatch.delenv("AUTHOR_API_KEY", raising=False)
     with TestClient(app) as client:
         yield client

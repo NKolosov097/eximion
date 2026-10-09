@@ -130,7 +130,6 @@ export function AttemptForm({ caseId, caseRevision }: AttemptFormProps) {
           />
         </div>
         <GuestSubmissionNotice
-          kind="attempt"
           acknowledged={guestAcknowledged}
           onChange={setGuestAcknowledged}
           disabled={pending}

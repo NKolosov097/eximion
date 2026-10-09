@@ -11,6 +11,7 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public code?: string,
   ) {
     super(message);
   }
@@ -60,8 +61,10 @@ export async function request<T>(
     );
   }
   if (response.status === 401 && body && typeof body === "object" && "error" in body && body.error && typeof body.error === "object" && "code" in body.error && body.error.code === "session_expired" && typeof window !== "undefined") window.dispatchEvent(new Event("session-expired"));
-  if (!response.ok)
-    throw new ApiError(response.status, errorMessage(body, response.status));
+  if (!response.ok) {
+    const code = body && typeof body === "object" && "error" in body && body.error && typeof body.error === "object" && "code" in body.error && typeof body.error.code === "string" ? body.error.code : undefined;
+    throw new ApiError(response.status, errorMessage(body, response.status), code);
+  }
   if (body === null) throw new Error(messages.requestError);
   return body as T;
 }

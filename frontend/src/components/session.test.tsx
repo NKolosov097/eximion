@@ -65,7 +65,7 @@ function renderForm(kind: "case" | "attempt") {
   return render(<SessionProvider>{kind === "case" ? <AuthorForm /> : <AttemptForm caseRevision={1} caseId="case-id" />}</SessionProvider>);
 }
 
-for (const kind of ["case", "attempt"] as const) {
+for (const kind of ["attempt"] as const) {
   describe(`${kind} sign-in modal integration`, () => {
     it("preserves every field across failure, cancellation and success without submitting", async () => {
       let loginAttempts = 0;
@@ -108,18 +108,18 @@ for (const kind of ["case", "attempt"] as const) {
       fireEvent.submit(reopened.querySelector("form")!);
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
       expect(screen.queryByRole("checkbox", { name: guestLabel })).toBeNull();
-      expect(screen.getByText(`This ${kind === "case" ? "case" : "answer"} will be saved to learner's profile.`)).toBeTruthy();
+      expect(screen.getByText(`This ${"answer"} will be saved to learner's profile.`)).toBeTruthy();
       assertPreserved(kind);
       expect(refresh).toHaveBeenCalledOnce();
       expect(push).not.toHaveBeenCalled();
       expect(fetch.mock.calls.filter(([url]) => !String(url).includes("/auth/") && !String(url).endsWith("/extract"))).toHaveLength(0);
-      expect((screen.getByTestId(kind === "case" ? "author-save-submit" : "attempt-submit") as HTMLButtonElement).disabled).toBe(false);
-      fireEvent.submit(screen.getByTestId(kind === "case" ? "author-save-form" : "attempt-form"));
+      expect((screen.getByTestId("attempt-submit") as HTMLButtonElement).disabled).toBe(false);
+      fireEvent.submit(screen.getByTestId("attempt-form"));
       const guestConsent = await screen.findByRole("checkbox", { name: guestLabel });
       const submission = fetch.mock.calls.find(([url]) => String(url).endsWith("/clinical-cases") || String(url).endsWith("/attempts"));
       expect(JSON.parse(submission![1]!.body as string).guest_acknowledged).toBe(false);
       expect((guestConsent as HTMLInputElement).checked).toBe(false);
-      expect((screen.getByTestId(kind === "case" ? "author-save-submit" : "attempt-submit") as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByTestId("attempt-submit") as HTMLButtonElement).disabled).toBe(true);
       assertPreserved(kind);
     });
 
@@ -138,9 +138,9 @@ for (const kind of ["case", "attempt"] as const) {
       await screen.findByRole("button", { name: "Retry sign-in check" });
       await fillForm(kind);
       expect(screen.queryByRole("checkbox", { name: guestLabel })).toBeNull();
-      const button = screen.getByTestId(kind === "case" ? "author-save-submit" : "attempt-submit") as HTMLButtonElement;
+      const button = screen.getByTestId("attempt-submit") as HTMLButtonElement;
       expect(button.disabled).toBe(true);
-      fireEvent.submit(screen.getByTestId(kind === "case" ? "author-save-form" : "attempt-form"));
+      fireEvent.submit(screen.getByTestId("attempt-form"));
       expect(fetch.mock.calls.filter(([url]) => !String(url).includes("/auth/") && !String(url).endsWith("/extract"))).toHaveLength(0);
       fireEvent.click(screen.getByRole("button", { name: "Retry sign-in check" }));
       const consent = await screen.findByRole("checkbox", { name: guestLabel });
@@ -152,3 +152,43 @@ for (const kind of ["case", "attempt"] as const) {
     });
   });
 }
+
+
+it("requires sign-in before extraction and preserves the full author draft after session expiry", async () => {
+  const fetch = vi.fn().mockImplementation((url: string) => {
+    if (url.endsWith("/auth/me")) return Promise.resolve(reply({ user: null }));
+    if (url.endsWith("/auth/login")) return Promise.resolve(reply(account));
+    if (url.endsWith("/extract")) return Promise.resolve(reply({ draft, warnings: [] }));
+    if (url.endsWith("/clinical-cases")) return Promise.resolve(reply({ error: { code: "session_expired", message: "Session expired. Sign in again." } }, 401));
+    throw new Error(url);
+  });
+  vi.stubGlobal("fetch", fetch);
+  renderForm("case");
+  await screen.findByRole("button", { name: "Sign in without losing your work" });
+  fill("author-source-text", authorValues["author-source-text"]);
+  fill("author-key", authorValues["author-key"]);
+  fireEvent.click(screen.getByTestId("author-extract-submit"));
+  expect(screen.queryByRole("checkbox", { name: guestLabel })).toBeNull();
+  expect(fetch.mock.calls.filter(([url]) => String(url).endsWith("/extract"))).toHaveLength(0);
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+  expect((screen.getByTestId("author-source-text") as HTMLTextAreaElement).value).toBe(authorValues["author-source-text"]);
+  fireEvent.click(screen.getByTestId("author-extract-submit"));
+  async function signIn() {
+    const modal = screen.getByRole("dialog");
+    fireEvent.change(within(modal).getByLabelText("Username"), { target: { value: "learner" } });
+    fireEvent.change(within(modal).getByLabelText("Password"), { target: { value: "synthetic-password" } });
+    fireEvent.submit(modal.querySelector("form")!);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  }
+  await signIn();
+  expect(fetch.mock.calls.filter(([url]) => String(url).endsWith("/extract"))).toHaveLength(0);
+  await fillForm("case");
+  fireEvent.submit(screen.getByTestId("author-save-form"));
+  await screen.findByRole("dialog");
+  assertPreserved("case");
+  expect(screen.queryByRole("checkbox", { name: guestLabel })).toBeNull();
+  await signIn();
+  assertPreserved("case");
+  expect(fetch.mock.calls.filter(([url]) => String(url).endsWith("/clinical-cases"))).toHaveLength(1);
+  expect(push).not.toHaveBeenCalled();
+});

@@ -15,3 +15,10 @@ Owner management refinement:
 3. Return private can_edit/can_hide capabilities; show both actions on detail and profile. Hide reuses archival, with confirmation and preserved history.
 4. Show answered snapshots and prior-version score labels. Refresh stale forms without losing input or auto-submitting.
 5. Verify migration/backfill, ownership isolation, historical grading, stale submissions, concurrency, browser controls and error states.
+
+Authenticated author and icon-control refinement:
+1. Require CurrentUser on extraction and creation; retain author-key enforcement and guest answer consent.
+2. Add row-locked owner restore action and can_restore metadata; no database migration.
+3. Reuse a single accessible icon action component in title rows for detail and profile; preserve confirmation/error behavior and responsive wrapping.
+4. Gate author actions through the existing login modal, retain drafts, and remove guest creation copy/checkbox.
+5. Update contract and all author fixtures/smoke callers. Verify unauthenticated valid-key rejection before LLM, owner-only restore, guest answers, modal preservation, icon semantics and layout.

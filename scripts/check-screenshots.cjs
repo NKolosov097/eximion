@@ -114,7 +114,7 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
         ],
         cases: [{ id: '11111111-1111-4111-8111-111111111114', title: 'Sudden fever and fatigue', archived: false, can_edit: true }],
       }) }));
-      await page.route('**/api/backend/clinical-cases/*/management', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ can_edit: false, can_hide: false }) }));
+      await page.route('**/api/backend/clinical-cases/*/management', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ can_edit: false, can_hide: false, can_restore: false }) }));
       await page.route('**/api/backend/clinical-cases/*/attempts', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ score: 0, max_score: 100, is_correct: false, feedback: 'Your diagnosis does not match an accepted answer.', accepted_diagnoses: ['Influenza', 'Flu'], matched_alternative_diagnoses: ['Flu'] }) }));
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
@@ -136,7 +136,7 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
         ['analytics', '/analytics', 'analytics-initial'],
         ['author', '/clinical-cases/new', 'author-source-text'],
       ]) {
-        signedIn = name === "account";
+        signedIn = name === "account" || name === "author";
         await page.goto(origin + route);
         if (ready) await visible(ready).waitFor();
         if (name === 'auth-dialog') {
