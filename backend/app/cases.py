@@ -32,5 +32,5 @@ def public_case(record: ClinicalCaseRecord) -> ClinicalCase:
     return ClinicalCase(
         id=record.id, title=record.title, vignette=record.vignette,
         symptoms=[symptom.text for symptom in record.symptoms],
-        age_years=record.age_years, created_at=record.created_at, archived=record.archived_at is not None,
+        age_years=record.age_years, revision=record.revision, created_at=record.created_at, archived=record.archived_at is not None,
     )

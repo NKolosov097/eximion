@@ -246,7 +246,7 @@ describe("diagnosis submission", () => {
           response({ detail: [{ msg: "Invalid value" }] }, 422),
         ),
     );
-    render(<AttemptForm caseId="case-id" />);
+    render(<AttemptForm caseRevision={1} caseId="case-id" />);
     expect(screen.getByTestId("attempt-diagnosis")).toBe(
       screen.getByLabelText(messages.diagnosisLabel),
     );
@@ -281,7 +281,7 @@ describe("diagnosis submission", () => {
       ),
     );
     vi.stubGlobal("fetch", fetchMock);
-    render(<AttemptForm caseId="case-id" />);
+    render(<AttemptForm caseRevision={1} caseId="case-id" />);
     fireEvent.change(screen.getByLabelText(messages.diagnosisLabel), {
       target: { value: "FLU" },
     });
@@ -300,6 +300,7 @@ describe("diagnosis submission", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       diagnosis: "FLU",
       alternative_diagnoses: [],
+      case_revision: 1,
       guest_acknowledged: false,
     });
     fireEvent.change(screen.getByLabelText(messages.diagnosisLabel), {
@@ -368,7 +369,7 @@ describe("inline field validation", () => {
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    render(<AttemptForm caseId="case-id" />);
+    render(<AttemptForm caseRevision={1} caseId="case-id" />);
     const field = screen.getByTestId("attempt-diagnosis");
     const diagnosis = `  ${String.fromCodePoint(0x1f600).repeat(200)}  `;
     expect(field.hasAttribute("maxlength")).toBe(false);

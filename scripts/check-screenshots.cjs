@@ -25,7 +25,7 @@ const draft = {
   symptoms: ['Fever', 'Dry cough', 'Muscle aches'],
   age_years: 28,
 };
-const clinicalCase = { ...draft, id, created_at: '2026-10-08T12:00:00Z' };
+const clinicalCase = { ...draft, id, revision: 1, created_at: '2026-10-08T12:00:00Z' };
 const listen = async server => {
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -109,11 +109,12 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
       await page.route('**/api/backend/profile?*', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({
         user, attempt_count: 2, correct_count: 1, incorrect_count: 1, points: 100, has_more: false, cases_has_more: false,
         attempts: [
-          { id: '11111111-1111-4111-8111-111111111112', clinical_case_id: id, title: draft.title, archived: false, diagnosis: 'Influenza', alternative_diagnoses: ['Common cold'], reasoning: 'The acute fever and muscle aches support the primary diagnosis.', score: 100, is_correct: true, created_at: '2026-10-08T12:00:00Z' },
-          { id: '11111111-1111-4111-8111-111111111113', clinical_case_id: id, title: draft.title, archived: false, diagnosis: 'Common cold', alternative_diagnoses: ['Flu', 'Asthma'], reasoning: 'I initially focused on the cough.', score: 0, is_correct: false, created_at: '2026-10-07T12:00:00Z' },
+          { id: '11111111-1111-4111-8111-111111111112', clinical_case_id: id, title: draft.title, case_updated: false, case_snapshot: { ...draft, revision: 1, accepted_diagnoses: ["Influenza", "Flu"] }, archived: false, diagnosis: 'Influenza', alternative_diagnoses: ['Common cold'], reasoning: 'The acute fever and muscle aches support the primary diagnosis.', score: 100, is_correct: true, created_at: '2026-10-08T12:00:00Z' },
+          { id: '11111111-1111-4111-8111-111111111113', clinical_case_id: id, title: draft.title, case_updated: false, case_snapshot: { ...draft, revision: 1, accepted_diagnoses: ["Influenza", "Flu"] }, archived: false, diagnosis: 'Common cold', alternative_diagnoses: ['Flu', 'Asthma'], reasoning: 'I initially focused on the cough.', score: 0, is_correct: false, created_at: '2026-10-07T12:00:00Z' },
         ],
         cases: [{ id: '11111111-1111-4111-8111-111111111114', title: 'Sudden fever and fatigue', archived: false, can_edit: true }],
       }) }));
+      await page.route('**/api/backend/clinical-cases/*/management', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ can_edit: false, can_hide: false }) }));
       await page.route('**/api/backend/clinical-cases/*/attempts', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ score: 0, max_score: 100, is_correct: false, feedback: 'Your diagnosis does not match an accepted answer.', accepted_diagnoses: ['Influenza', 'Flu'], matched_alternative_diagnoses: ['Flu'] }) }));
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
@@ -164,8 +165,8 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
           assert(title && signOut && headingRow);
           assert(Math.abs(signOut.x + signOut.width - headingRow.x - headingRow.width) <= 1, 'Sign out must align right');
           if (size === 'desktop') assert(Math.abs(title.y + title.height / 2 - signOut.y - signOut.height / 2) <= 1, 'Profile title and Sign out must share a row');
-          assert.equal(await page.locator('.profile-list').filter({ visible: true }).first().locator('li').count(), 2);
-          assert(await page.getByRole('link', { name: 'Edit', exact: true }).isVisible());
+          assert.equal(await page.locator('.profile-list').filter({ visible: true }).first().locator(':scope > li').count(), 2);
+          assert(await page.getByRole('link', { name: 'Edit case', exact: true }).isVisible());
         }
         if (name === 'case-feedback') {
           await visible('attempt-diagnosis').fill('Common cold');

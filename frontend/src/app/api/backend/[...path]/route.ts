@@ -3,7 +3,7 @@ import { sameOrigin } from "@/lib/same-origin";
 import { apiBaseUrl } from "@/lib/api";
 
 const cookieName = "clinical_session";
-const allowed = /^(auth\/(me|login|register|logout)|profile|analytics|clinical-cases(\/extract|\/[0-9a-f-]{36}(\/(attempts|edit))?)?)$/;
+const allowed = /^(auth\/(me|login|register|logout)|profile|analytics|clinical-cases(\/extract|\/[0-9a-f-]{36}(\/(attempts|edit|management))?)?)$/;
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path } = await context.params;

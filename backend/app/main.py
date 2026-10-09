@@ -18,7 +18,7 @@ from app.errors import APIError
 from app.cases import build_case, normalize_diagnosis, public_case
 from app.database import commit, get_session
 from app.models import ClinicalCaseAttempt, ClinicalCaseRecord, utc_now
-from app.schemas import Account, AttemptHistory, OwnedCase, Profile, AnalyticsSummary, AttemptCreate, AttemptResult, ClinicalCase, ClinicalCaseCreate, ClinicalCasePage, ErrorResponse, ExtractionRequest, ExtractionResponse
+from app.schemas import Account, AttemptHistory, CaseManagement, CaseSnapshot, OwnedCase, Profile, AnalyticsSummary, AttemptCreate, AttemptResult, ClinicalCase, ClinicalCaseCreate, ClinicalCasePage, ErrorResponse, ExtractionRequest, ExtractionResponse
 from app.telemetry import TelemetryMiddleware, set_request_error, traced
 
 
@@ -160,13 +160,16 @@ def list_clinical_cases(
     ).all()
     items = [public_case(record) for record in records[:page_size]]
     if user and items:
-        latest = session.execute(select(ClinicalCaseAttempt.clinical_case_id, ClinicalCaseAttempt.score)
+        latest = session.execute(select(ClinicalCaseAttempt.clinical_case_id, ClinicalCaseAttempt.score, ClinicalCaseAttempt.case_snapshot)
             .where(ClinicalCaseAttempt.user_id == user.id, ClinicalCaseAttempt.clinical_case_id.in_([item.id for item in items]))
             .distinct(ClinicalCaseAttempt.clinical_case_id)
             .order_by(ClinicalCaseAttempt.clinical_case_id, ClinicalCaseAttempt.created_at.desc(), ClinicalCaseAttempt.id.desc())).all()
-        scores = dict(latest)
+        scores = cast(dict[UUID, tuple[int, dict | None]], {case_id: (score, snapshot) for case_id, score, snapshot in latest})
         for item in items:
-            item.latest_score = cast(Literal[0, 100] | None, scores.get(item.id))
+            if item.id in scores:
+                score, snapshot = scores[item.id]
+                item.latest_score = cast(Literal[0, 100], score)
+                item.latest_score_is_previous_version = snapshot is not None and snapshot["revision"] != item.revision
     return ClinicalCasePage(
         items=items,
         has_more=len(records) > page_size,
@@ -219,17 +222,21 @@ def create_attempt(id: UUID, data: AttemptCreate, session: SessionDependency, us
     record = locked_case(id, session)
     if record.archived_at is not None:
         raise APIError(409, "case_archived", "This case is archived and no longer accepts answers.")
+    if data.case_revision is not None and data.case_revision != record.revision:
+        raise APIError(409, "case_changed", "This case has changed. Refresh the case and review it before submitting again.")
+    snapshot = snapshot_case(record)
+    matched_alternatives = [diagnosis for diagnosis in data.alternative_diagnoses if grade(record, diagnosis)]
     is_correct = grade(record, data.diagnosis)
     score: Literal[0, 100] = 100 if is_correct else 0
-    attempt = ClinicalCaseAttempt(clinical_case_id=id, diagnosis=data.diagnosis, score=score, is_correct=is_correct, user_id=user.id if user else None, alternative_diagnoses=data.alternative_diagnoses, reasoning=data.reasoning)
+    attempt = ClinicalCaseAttempt(case_snapshot=snapshot.model_dump(), clinical_case_id=id, diagnosis=data.diagnosis, score=score, is_correct=is_correct, user_id=user.id if user else None, alternative_diagnoses=data.alternative_diagnoses, reasoning=data.reasoning)
     session.add(attempt)
     commit(session)
     return AttemptResult(
         id=attempt.id, clinical_case_id=id, score=score, max_score=100, is_correct=is_correct,
         feedback="Your diagnosis matches an accepted answer." if is_correct else "Your diagnosis does not match an accepted answer.",
         created_at=attempt.created_at,
-        accepted_diagnoses=[record.reference_diagnosis, *[answer.answer for answer in record.accepted_answers]],
-        matched_alternative_diagnoses=[diagnosis for diagnosis in data.alternative_diagnoses if grade(record, diagnosis)],
+        accepted_diagnoses=snapshot.accepted_diagnoses,
+        matched_alternative_diagnoses=matched_alternatives,
     )
 
 
@@ -258,36 +265,55 @@ def owned_case(case_id: UUID, session: Session, user) -> ClinicalCaseRecord:
     return record
 
 
-def can_edit(record: ClinicalCaseRecord, session: Session) -> bool:
-    return record.archived_at is None and not session.scalar(select(ClinicalCaseAttempt.id).where(ClinicalCaseAttempt.clinical_case_id == record.id).limit(1))
+def snapshot_case(record: ClinicalCaseRecord) -> CaseSnapshot:
+    return CaseSnapshot(revision=record.revision, title=record.title, vignette=record.vignette, age_years=record.age_years, symptoms=[s.text for s in record.symptoms], accepted_diagnoses=[record.reference_diagnosis, *[a.answer for a in record.accepted_answers]])
+
+
+def can_edit(record: ClinicalCaseRecord) -> bool:
+    return record.archived_at is None
 
 
 @app.get("/api/v1/profile", response_model=Profile)
 def profile(user: CurrentUser, response: Response, session: SessionDependency, page: Annotated[int, Query(ge=1, le=1000000)] = 1, case_page: Annotated[int, Query(ge=1, le=1000000)] = 1):
     response.headers["Cache-Control"] = "no-store"
     counts = session.execute(select(func.count(), func.count().filter(ClinicalCaseAttempt.is_correct.is_(True)), func.coalesce(func.sum(ClinicalCaseAttempt.score), 0)).where(ClinicalCaseAttempt.user_id == user.id)).one()
-    rows = session.execute(select(ClinicalCaseAttempt, ClinicalCaseRecord.title, ClinicalCaseRecord.archived_at).join(ClinicalCaseRecord).where(ClinicalCaseAttempt.user_id == user.id).order_by(ClinicalCaseAttempt.created_at.desc(), ClinicalCaseAttempt.id.desc()).offset((page - 1) * 20).limit(21)).all()
+    rows = session.execute(select(ClinicalCaseAttempt, ClinicalCaseRecord).join(ClinicalCaseRecord).where(ClinicalCaseAttempt.user_id == user.id).order_by(ClinicalCaseAttempt.created_at.desc(), ClinicalCaseAttempt.id.desc()).offset((page - 1) * 20).limit(21)).all()
     cases = session.scalars(select(ClinicalCaseRecord).where(ClinicalCaseRecord.owner_id == user.id).order_by(ClinicalCaseRecord.created_at.desc(), ClinicalCaseRecord.id.desc()).offset((case_page - 1) * 20).limit(21)).all()
     return Profile(user=Account(id=user.id, username=user.username), attempt_count=counts[0], correct_count=counts[1], incorrect_count=counts[0]-counts[1], points=counts[2],
-        attempts=[AttemptHistory(id=a.id, clinical_case_id=a.clinical_case_id, title=title, archived=archived is not None, diagnosis=a.diagnosis, alternative_diagnoses=a.alternative_diagnoses, reasoning=a.reasoning, score=a.score, is_correct=a.is_correct, created_at=a.created_at) for a, title, archived in rows[:20]], has_more=len(rows)>20,
-        cases=[OwnedCase(id=c.id, title=c.title, archived=c.archived_at is not None, can_edit=can_edit(c, session)) for c in cases[:20]], cases_has_more=len(cases)>20)
+        attempts=[AttemptHistory(id=a.id, clinical_case_id=a.clinical_case_id, title=snapshot.title, case_snapshot=snapshot, case_updated=snapshot.revision != record.revision, archived=record.archived_at is not None, diagnosis=a.diagnosis, alternative_diagnoses=a.alternative_diagnoses, reasoning=a.reasoning, score=a.score, is_correct=a.is_correct, created_at=a.created_at) for a, record in rows[:20] for snapshot in [CaseSnapshot.model_validate(a.case_snapshot) if a.case_snapshot else snapshot_case(record)]], has_more=len(rows)>20,
+        cases=[OwnedCase(id=c.id, title=c.title, archived=c.archived_at is not None, can_edit=can_edit(c)) for c in cases[:20]], cases_has_more=len(cases)>20)
+
+
+@app.get("/api/v1/clinical-cases/{id}/management", response_model=CaseManagement)
+def case_management(id: UUID, user: CurrentUser, response: Response, session: SessionDependency):
+    response.headers["Cache-Control"] = "no-store"
+    record = find_case(id, session)
+    allowed = record.owner_id == user.id and record.archived_at is None
+    return CaseManagement(can_edit=allowed, can_hide=allowed)
 
 
 @app.get("/api/v1/clinical-cases/{id}/edit", response_model=ClinicalCaseCreate)
 def read_owned_case(id: UUID, user: CurrentUser, response: Response, session: SessionDependency):
     response.headers["Cache-Control"] = "no-store"
     record = owned_case(id, session, user)
-    if not can_edit(record, session):
-        raise APIError(409, "case_locked", "Cases can only be edited before the first answer and before archival.")
+    if not can_edit(record):
+        raise APIError(409, "case_locked", "Hidden cases cannot be edited.")
     return ClinicalCaseCreate(title=record.title, vignette=record.vignette, age_years=record.age_years, symptoms=[s.text for s in record.symptoms], reference_diagnosis=record.reference_diagnosis, accepted_answers=[a.answer for a in record.accepted_answers])
 
 
 @app.put("/api/v1/clinical-cases/{id}", response_model=ClinicalCase)
 def update_owned_case(id: UUID, data: ClinicalCaseCreate, user: CurrentUser, session: SessionDependency):
     record = owned_case(id, session, user)
-    if not can_edit(record, session):
-        raise APIError(409, "case_locked", "Cases can only be edited before the first answer and before archival.")
+    if not can_edit(record):
+        raise APIError(409, "case_locked", "Hidden cases cannot be edited.")
+    # Old service revisions may still create snapshot-free attempts during rollout.
+    legacy = session.scalars(select(ClinicalCaseAttempt).where(ClinicalCaseAttempt.clinical_case_id == id, ClinicalCaseAttempt.case_snapshot.is_(None))).all()
+    if legacy:
+        snapshot = snapshot_case(record).model_dump()
+        for attempt in legacy:
+            attempt.case_snapshot = snapshot
     replacement = build_case(data)
+    record.revision += 1
     for field in ("title", "vignette", "age_years", "reference_diagnosis", "normalized_reference_diagnosis"):
         setattr(record, field, getattr(replacement, field))
     record.symptoms.clear()

@@ -46,6 +46,7 @@ class ClinicalCaseRecord(Base):
         CheckConstraint("char_length(normalized_reference_diagnosis) > 0", name="ck_case_normalized_reference"),
     )
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     owner_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), index=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     title: Mapped[str] = mapped_column(String(120))
@@ -96,6 +97,7 @@ class ClinicalCaseAttempt(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     clinical_case_id: Mapped[UUID] = mapped_column(ForeignKey("clinical_cases.id", ondelete="CASCADE"), index=True)
     user_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), index=True)
+    case_snapshot: Mapped[dict | None] = mapped_column(JSONB)
     alternative_diagnoses: Mapped[list[str]] = mapped_column(JSONB, default=list, server_default=text("'[]'::jsonb"))
     reasoning: Mapped[str] = mapped_column(Text, default="", server_default="")
     diagnosis: Mapped[str] = mapped_column(String(200))

@@ -14,7 +14,7 @@ const draft = {
   symptoms: ["Fever"],
   age_years: null,
 };
-const clinicalCase = { ...draft, id, created_at: "2026-10-08T12:00:00Z" };
+const clinicalCase = { ...draft, id, revision: 1, created_at: "2026-10-08T12:00:00Z" };
 const listen = async (server) => {
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -35,6 +35,7 @@ const listen = async (server) => {
     requests++;
     const requestPath = new URL(req.url, "http://localhost").pathname;
     const searchParams = new URL(req.url, "http://localhost").searchParams;
+    if (requestPath.endsWith("/management")) { res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify({ can_edit: false, can_hide: false })); return; }
     if (requestPath.endsWith("/attempts") && req.method === "POST") {
       latestAccountScore = 0;
       res.writeHead(201, { "Content-Type": "application/json" });
@@ -45,7 +46,7 @@ const listen = async (server) => {
       const result = requestPath.endsWith("/login") || requestPath.endsWith("/register")
         ? { user: account, session_token: "browser-private-session" }
         : requestPath.endsWith("/logout") ? { signed_out: true }
-        : requestPath === "/api/v1/profile" ? { user: account, attempt_count: 2, correct_count: 1, incorrect_count: 1, points: 100, attempts: [{ id: "attempt", clinical_case_id: id, title: draft.title, archived: false, diagnosis: "Influenza", alternative_diagnoses: ["Cold"], reasoning: "Synthetic explanation", score: 100, is_correct: true, created_at: "2026-10-08T12:00:00Z" }], has_more: false, cases: [], cases_has_more: false }
+        : requestPath === "/api/v1/profile" ? { user: account, attempt_count: 2, correct_count: 1, incorrect_count: 1, points: 100, attempts: [{ id: "attempt", clinical_case_id: id, title: draft.title, case_updated: false, case_snapshot: { ...draft, revision: 1, accepted_diagnoses: ["Influenza", "Flu"] }, archived: false, diagnosis: "Influenza", alternative_diagnoses: ["Cold"], reasoning: "Synthetic explanation", score: 100, is_correct: true, created_at: "2026-10-08T12:00:00Z" }], has_more: false, cases: [], cases_has_more: false }
         : { user: authenticated ? account : null };
       res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(result)); return;
     }
@@ -283,7 +284,9 @@ const listen = async (server) => {
         if (holdExtraction) await new Promise((resolve) => { releaseExtraction = resolve; });
         body = { draft, warnings: [] };
       }
+      if (request.url().endsWith("/management")) body = { can_edit: false, can_hide: false };
       const isAttempt = request.url().endsWith("/attempts");
+      if (isAttempt) assert.equal(request.postDataJSON().case_revision, clinicalCase.revision);
       if (isAttempt) {
         const correct = request.postDataJSON().diagnosis.trim().toLowerCase() !== "unrelated diagnosis";
         body = attemptUnavailable

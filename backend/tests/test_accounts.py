@@ -75,7 +75,7 @@ def test_ownership_grading_history_filter_edit_archive(client, postgres):
     result = client.post(url+"/attempts",headers=bob,json={"diagnosis":"Cold","alternative_diagnoses":[" Flu ","Asthma"],"reasoning":" Cough and fever "}).json()
     assert result["score"] == 0 and result["matched_alternative_diagnoses"] == ["Flu"]
     assert result["accepted_diagnoses"] == ["Influenza","Flu"]
-    assert client.put(url,json=VALID_CASE,headers=alice).status_code == 409
+    assert client.put(url,json=VALID_CASE,headers=alice).status_code == 200
     assert client.post(url+"/attempts",headers=bob,json={"diagnosis":"Flu"}).status_code == 201
     profile = client.get("/api/v1/profile",headers=bob)
     assert profile.headers["cache-control"] == "no-store"
@@ -114,7 +114,7 @@ def test_login_throttle_and_invalid_session_never_downgrades(client):
     assert client.post("/api/v1/clinical-cases",json=VALID_CASE,headers={"Authorization":"Bearer invalid"}).status_code == 401
 
 
-def test_concurrent_attempt_locks_out_owner_edit(client, monkeypatch):
+def test_concurrent_attempt_preserves_snapshot_before_owner_edit(client, monkeypatch, postgres):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Event, Lock
     from app import main
@@ -140,11 +140,17 @@ def test_concurrent_attempt_locks_out_owner_edit(client, monkeypatch):
     with ThreadPoolExecutor(max_workers=2) as pool:
         attempt = pool.submit(client.post,url+"/attempts",json={"diagnosis":"Flu","guest_acknowledged":True})
         assert locked.wait(10)
-        edit = pool.submit(client.put,url,json=VALID_CASE,headers=alice)
+        edit = pool.submit(client.put,url,json={**VALID_CASE,"reference_diagnosis":"Asthma","accepted_answers":[]},headers=alice)
         assert editing.wait(10)
         release.set()
-        assert attempt.result(timeout=10).status_code == 201
-        assert edit.result(timeout=10).status_code == 409
+        result = attempt.result(timeout=10)
+        assert result.status_code == 201
+        assert result.json()["accepted_diagnoses"] == ["Influenza", "Flu"]
+        assert edit.result(timeout=10).status_code == 200
+    assert client.get(url).json()["revision"] == 2
+    with Session(postgres[0]) as session:
+        saved = session.scalar(select(ClinicalCaseAttempt))
+        assert saved.case_snapshot["revision"] == 1 and saved.score == 100
 
 
 def test_old_rows_preserved_by_account_migration(postgres):
@@ -162,4 +168,96 @@ def test_old_rows_preserved_by_account_migration(postgres):
         record = session.get(ClinicalCaseRecord,case_id)
         attempt = session.get(ClinicalCaseAttempt,attempt_id)
         assert record.title == "Old case" and record.owner_id is None and record.archived_at is None
+        assert attempt.case_snapshot["title"] == "Old case"
+        assert attempt.case_snapshot["accepted_diagnoses"] == ["Flu"]
+        assert record.revision == 1
         assert attempt.user_id is None and attempt.alternative_diagnoses == [] and attempt.reasoning == "" and attempt.score == 100
+
+
+def test_case_revisions_preserve_history_reject_stale_and_hide(client, postgres):
+    alice, bob = register(client), register(client, "bobby")
+    case = client.post("/api/v1/clinical-cases", json=VALID_CASE, headers=alice).json()
+    url = f"/api/v1/clinical-cases/{case['id']}"
+    owner = client.get(url + "/management", headers=alice)
+    assert owner.json() == {"can_edit": True, "can_hide": True}
+    assert owner.headers["cache-control"] == "no-store"
+    assert client.get(url + "/management", headers=bob).json() == {"can_edit": False, "can_hide": False}
+    assert client.get(url + "/management").status_code == 401
+    first = client.post(url + "/attempts", headers=bob, json={"diagnosis": "Flu", "case_revision": 1})
+    assert first.status_code == 201 and first.json()["score"] == 100
+    before = client.get("/api/v1/profile", headers=bob).json()["attempts"][0]
+    assert before["case_snapshot"]["accepted_diagnoses"] == ["Influenza", "Flu"]
+    updated = {**VALID_CASE, "title": "Changed case", "vignette": "New case description", "reference_diagnosis": "Asthma", "accepted_answers": []}
+    assert client.put(url, json=updated, headers=alice).json()["revision"] == 2
+    history = client.get("/api/v1/profile", headers=bob).json()
+    old = history["attempts"][0]
+    assert old["case_snapshot"] == before["case_snapshot"] and old["title"] == case["title"]
+    assert old["case_updated"] and old["score"] == 100 and history["points"] == 100
+    catalog = client.get("/api/v1/clinical-cases", headers=bob).json()["items"][0]
+    assert catalog["latest_score"] == 100 and catalog["latest_score_is_previous_version"]
+    stale = client.post(url + "/attempts", headers=bob, json={"diagnosis": "Flu", "case_revision": 1})
+    assert stale.status_code == 409 and stale.json()["error"]["code"] == "case_changed"
+    assert client.get("/api/v1/profile", headers=bob).json()["attempt_count"] == 1
+    assert client.post(url + "/attempts", headers=bob, json={"diagnosis": "Asthma", "case_revision": 2}).json()["score"] == 100
+    assert not client.get("/api/v1/clinical-cases", headers=bob).json()["items"][0]["latest_score_is_previous_version"]
+    assert client.get("/api/v1/profile", headers=alice).json()["cases"][0]["can_edit"]
+    assert "case_snapshot" not in client.get(url).json() and "reference_diagnosis" not in client.get(url).json()
+    assert client.put(url, json=updated, headers=bob).status_code == 404
+    assert client.delete(url, headers=bob).status_code == 404
+    assert client.delete(url, headers=alice).status_code == 200
+    assert client.get(url + "/management", headers=alice).json() == {"can_edit": False, "can_hide": False}
+    assert client.get("/api/v1/clinical-cases").json()["items"] == []
+    assert client.put(url, json=updated, headers=alice).status_code == 409
+    assert client.post(url + "/attempts", headers=bob, json={"diagnosis": "Asthma", "case_revision": 2}).status_code == 409
+    assert client.get("/api/v1/profile", headers=bob).json()["points"] == 200
+
+
+def test_rolling_deployment_null_snapshot_frozen_before_edit(client, postgres):
+    alice = register(client)
+    case = client.post("/api/v1/clinical-cases", json=VALID_CASE, headers=alice).json()
+    with Session(postgres[0]) as session:
+        attempt = ClinicalCaseAttempt(clinical_case_id=UUID(case["id"]), diagnosis="Flu", score=100, is_correct=True)
+        session.add(attempt)
+        session.commit()
+        attempt_id = attempt.id
+        assert attempt.case_snapshot is None
+    url = f"/api/v1/clinical-cases/{case['id']}"
+    assert client.put(url, headers=alice, json={**VALID_CASE, "title": "Later title"}).status_code == 200
+    with Session(postgres[0]) as session:
+        attempt = session.get(ClinicalCaseAttempt, attempt_id)
+        assert attempt.case_snapshot["title"] == case["title"] and attempt.case_snapshot["revision"] == 1
+        assert attempt.score == 100
+
+
+def test_concurrent_edit_rejects_waiting_stale_answer(client, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event, Lock
+    from app import main
+    alice = register(client)
+    case = client.post("/api/v1/clinical-cases", json=VALID_CASE, headers=alice).json()
+    url = f"/api/v1/clinical-cases/{case['id']}"
+    original = main.locked_case
+    locked, waiting, release = Event(), Event(), Event()
+    mutex = Lock()
+    calls = 0
+    def coordinated(case_id, session):
+        nonlocal calls
+        with mutex:
+            calls += 1
+            first = calls == 1
+        if not first: waiting.set()
+        record = original(case_id, session)
+        if first:
+            locked.set()
+            assert release.wait(10)
+        return record
+    monkeypatch.setattr(main, "locked_case", coordinated)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        edit = pool.submit(client.put, url, json={**VALID_CASE, "title": "Changed title"}, headers=alice)
+        assert locked.wait(10)
+        attempt = pool.submit(client.post, url + "/attempts", json={"diagnosis": "Flu", "case_revision": 1}, headers=alice)
+        assert waiting.wait(10)
+        release.set()
+        assert edit.result(timeout=10).status_code == 200
+        assert attempt.result(timeout=10).json()["error"]["code"] == "case_changed"
+    assert client.get("/api/v1/profile", headers=alice).json()["attempt_count"] == 0

@@ -258,3 +258,9 @@ Live verification at 2026-10-09T04:14:48.365Z passed: all three public seeds, or
 ## Profile spacing and navigation correction
 
 Added a 24px gap above the guest profile panel and removed the signed-in navigation icon, retaining the username and accessible profile label. Focused unit tests, TypeScript, production build and sixteen reviewed screenshot comparisons passed. All eight CI jobs passed in run 37897010173. Frontend source 675a877 was built as b6dfadd1-a4f6-4e58-b511-44a5f126a73f and deployed to eximion-frontend-00013-hg5. Live checks at 2026-10-09T07:07:42.685Z verified the real guest layout on desktop/mobile and username-only navigation with a mocked session response, without any database writes or Gemini calls.
+
+## Owner editing after answers and hiding - local verification
+
+Owners now have Edit case and Hide case actions on detail pages reached from Cases and in their profile. Editing preserves immutable attempt snapshots and scores; new submissions use the current reference. Browser revision conflicts require an explicit refresh while keeping typed diagnoses. Catalog scores from earlier revisions are labeled. Hiding removes the case from the catalog and prevents new answers, retaining history. Migration 94f23c105be1 backfills snapshots and supports rolling deployment with old writers.
+
+Validation: 95 backend tests against dedicated PostgreSQL schemas, 77 frontend tests, mypy, TypeScript, contract regeneration, production build, full Linux browser harness and sixteen reviewed screenshot comparisons passed. A real local browser/API flow verified owner controls from Cases, editing after another account answered, old title/score preservation, stale rejection, new-key grading, cross-user denial and hiding with retained history. Synthetic test cases were hidden after checks. Gemini was not invoked.

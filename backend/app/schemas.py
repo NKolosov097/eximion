@@ -42,7 +42,9 @@ class ClinicalCase(ClinicalCaseDraft):
     id: UUID
     created_at: datetime
     archived: bool = False
+    revision: int = 1
     latest_score: Literal[0, 100] | None = None
+    latest_score_is_previous_version: bool = False
 
 
 class ClinicalCasePage(BaseModel):
@@ -60,6 +62,7 @@ class ExtractionResponse(BaseModel):
 
 
 class AttemptCreate(RequestModel):
+    case_revision: Annotated[int, Field(strict=True, ge=1, description="Displayed case revision; omit only to grade the current case.")] | None = None
     diagnosis: ShortText
     alternative_diagnoses: Annotated[list[ShortText], Field(max_length=5)] = Field(default_factory=list)
     reasoning: Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000, pattern=r"^[^\x00]*$")] = ""
@@ -90,9 +93,16 @@ class AuthSession(BaseModel):
     session_token: str
 
 
+class CaseSnapshot(ClinicalCaseDraft):
+    revision: int
+    accepted_diagnoses: list[str]
+
+
 class AttemptHistory(BaseModel):
     id: UUID
     clinical_case_id: UUID
+    case_snapshot: CaseSnapshot
+    case_updated: bool
     title: str
     archived: bool
     diagnosis: str
@@ -108,6 +118,11 @@ class OwnedCase(BaseModel):
     title: str
     archived: bool
     can_edit: bool
+
+
+class CaseManagement(BaseModel):
+    can_edit: bool
+    can_hide: bool
 
 
 class Profile(BaseModel):

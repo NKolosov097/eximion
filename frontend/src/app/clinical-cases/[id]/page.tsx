@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { OwnerCaseControls } from "@/components/owner-case-controls";
 import { AttemptForm } from "@/components/attempt-form";
 import { apiBaseUrl } from "@/lib/api";
 import { DEMO_CASE_IDS, messages } from "@/lib/messages";
@@ -54,6 +55,7 @@ export default async function CasePage({ params }: CasePageProps) {
         <h1 data-testid="case-title">{clinicalCase.title}</h1>
         <p className="lead">{messages.practiceDescription}</p>
       </div>
+      <OwnerCaseControls id={clinicalCase.id} revision={clinicalCase.revision ?? 1} archived={clinicalCase.archived ?? false} />
       <div className="case-layout">
         <article className="panel case-vignette">
           <div className="case-section-top">
@@ -81,7 +83,7 @@ export default async function CasePage({ params }: CasePageProps) {
           </ul>
         </aside>
       </div>
-      {clinicalCase.archived ? <div className="panel"><h2>Archived case</h2><p>This case is read-only. Existing answers remain in their owners' profiles.</p></div> : <AttemptForm caseId={clinicalCase.id} />}
+      {clinicalCase.archived ? <div className="panel"><h2>Hidden case</h2><p>This case is hidden from the catalog and is read-only. Existing answers remain in their owners' profiles.</p></div> : <AttemptForm caseId={clinicalCase.id} caseRevision={clinicalCase.revision ?? 1} />}
     </div>
   );
 }

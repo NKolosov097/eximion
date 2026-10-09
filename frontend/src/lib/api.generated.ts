@@ -211,6 +211,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/clinical-cases/{id}/management": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Case Management */
+        get: operations["case_management_api_v1_clinical_cases__id__management_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/clinical-cases/{id}/edit": {
         parameters: {
             query?: never;
@@ -270,6 +287,8 @@ export interface components {
         };
         /** AttemptCreate */
         AttemptCreate: {
+            /** Case Revision */
+            case_revision?: number | null;
             /** Diagnosis */
             diagnosis: string;
             /** Alternative Diagnoses */
@@ -297,6 +316,9 @@ export interface components {
              * Format: uuid
              */
             clinical_case_id: string;
+            case_snapshot: components["schemas"]["CaseSnapshot"];
+            /** Case Updated */
+            case_updated: boolean;
             /** Title */
             title: string;
             /** Archived */
@@ -362,6 +384,28 @@ export interface components {
             /** Session Token */
             session_token: string;
         };
+        /** CaseManagement */
+        CaseManagement: {
+            /** Can Edit */
+            can_edit: boolean;
+            /** Can Hide */
+            can_hide: boolean;
+        };
+        /** CaseSnapshot */
+        CaseSnapshot: {
+            /** Title */
+            title: string;
+            /** Vignette */
+            vignette: string;
+            /** Symptoms */
+            symptoms: string[];
+            /** Age Years */
+            age_years?: number | null;
+            /** Revision */
+            revision: number;
+            /** Accepted Diagnoses */
+            accepted_diagnoses: string[];
+        };
         /** ClinicalCase */
         ClinicalCase: {
             /** Title */
@@ -387,8 +431,18 @@ export interface components {
              * @default false
              */
             archived: boolean;
+            /**
+             * Revision
+             * @default 1
+             */
+            revision: number;
             /** Latest Score */
             latest_score?: (0 | 100) | null;
+            /**
+             * Latest Score Is Previous Version
+             * @default false
+             */
+            latest_score_is_previous_version: boolean;
         };
         /** ClinicalCaseCreate */
         ClinicalCaseCreate: {
@@ -1123,6 +1177,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    case_management_api_v1_clinical_cases__id__management_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseManagement"];
                 };
             };
             /** @description Validation Error */

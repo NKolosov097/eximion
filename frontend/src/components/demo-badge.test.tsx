@@ -6,6 +6,7 @@ import { DEMO_CASE_IDS, messages } from "@/lib/messages";
 
 const { serverRequest } = vi.hoisted(() => ({ serverRequest: vi.fn() }));
 vi.mock("@/lib/server-api", () => ({ serverRequest }));
+vi.mock("@/components/owner-case-controls", () => ({ OwnerCaseControls: () => null }));
 vi.mock("@/components/attempt-form", () => ({ AttemptForm: () => null }));
 vi.mock("@/components/catalog-search", () => ({ CatalogSearch: () => null }));
 vi.mock("next/navigation", () => ({ notFound: () => { throw new Error("not-found"); } }));

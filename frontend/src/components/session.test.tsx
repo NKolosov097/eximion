@@ -62,7 +62,7 @@ function assertPreserved(kind: "case" | "attempt") {
   if (kind === "case") expect((screen.getByTestId("author-review-confirmation") as HTMLInputElement).checked).toBe(true);
 }
 function renderForm(kind: "case" | "attempt") {
-  return render(<SessionProvider>{kind === "case" ? <AuthorForm /> : <AttemptForm caseId="case-id" />}</SessionProvider>);
+  return render(<SessionProvider>{kind === "case" ? <AuthorForm /> : <AttemptForm caseRevision={1} caseId="case-id" />}</SessionProvider>);
 }
 
 for (const kind of ["case", "attempt"] as const) {

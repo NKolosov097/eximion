@@ -4,7 +4,7 @@ import { useEffect, useState, type SubmitEvent } from "react";
 import { useRouter } from "next/navigation";
 import { GuestSubmissionNotice } from "@/components/guest-submission-notice";
 import { useSession } from "@/components/session-provider";
-import { displayError, request } from "@/lib/api";
+import { ApiError, displayError, request } from "@/lib/api";
 import { messages } from "@/lib/messages";
 import type { AttemptCreate, AttemptResult } from "@/lib/types";
 import { lines } from "@/lib/text";
@@ -12,9 +12,10 @@ import { listError, textError } from "@/lib/validation";
 
 interface AttemptFormProps {
   caseId: string;
+  caseRevision: number;
 }
 
-export function AttemptForm({ caseId }: AttemptFormProps) {
+export function AttemptForm({ caseId, caseRevision }: AttemptFormProps) {
   const router = useRouter();
   const { user, loading } = useSession();
   const [guestAcknowledged, setGuestAcknowledged] = useState(false);
@@ -23,7 +24,9 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
   const [pending, setPending] = useState(false);
   const [invalid, setInvalid] = useState("");
   const [error, setError] = useState("");
+  const [staleRevision, setStaleRevision] = useState<number | null>(null);
   const [result, setResult] = useState<AttemptResult | null>(null);
+  useEffect(() => { setStaleRevision(null); setError(""); setResult(null); }, [caseRevision]);
 
   useEffect(() => {
     setGuestAcknowledged(false);
@@ -32,7 +35,7 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
 
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending || loading || (!user && !guestAcknowledged)) return;
+    if (staleRevision === caseRevision || pending || loading || (!user && !guestAcknowledged)) return;
     const alternativeDiagnoses = lines(alternatives);
     const validation = [
       ["diagnosis", textError(diagnosis, 1, 200)],
@@ -53,6 +56,7 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
     setResult(null);
     const body: Omit<AttemptCreate, "reasoning"> = {
       diagnosis,
+      case_revision: caseRevision,
       guest_acknowledged: !user && guestAcknowledged,
       alternative_diagnoses: alternativeDiagnoses,
     };
@@ -66,6 +70,7 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
       router.refresh();
     } catch (error) {
       setError(displayError(error));
+      if (error instanceof ApiError && error.status === 409) setStaleRevision(caseRevision);
     } finally {
       setPending(false);
     }
@@ -133,7 +138,7 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
         <button
           className="button"
           type="submit"
-          disabled={pending || loading || (!user && !guestAcknowledged)}
+          disabled={staleRevision === caseRevision || pending || loading || (!user && !guestAcknowledged)}
           data-testid="attempt-submit"
         >
           {pending ? messages.submitting : messages.submit}
@@ -149,6 +154,7 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
             {error}
           </p>
         )}
+        {staleRevision === caseRevision && <p className="field-hint">Refresh to review the current case. Your entered diagnoses will stay here. <button className="button button-secondary" type="button" onClick={() => router.refresh()}>Refresh case</button></p>}
         {result && (
           <div
             role="status"

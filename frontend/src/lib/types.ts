@@ -13,3 +13,5 @@ export type ClinicalCasePage = components["schemas"]["ClinicalCasePage"];
 
 export type Account = components["schemas"]["Account"];
 export type Profile = components["schemas"]["Profile"];
+
+export type CaseManagement = components["schemas"]["CaseManagement"];

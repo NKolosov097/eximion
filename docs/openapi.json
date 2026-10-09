@@ -921,6 +921,62 @@
         }
       }
     },
+    "/api/v1/clinical-cases/{id}/management": {
+      "get": {
+        "summary": "Case Management",
+        "operationId": "case_management_api_v1_clinical_cases__id__management_get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseManagement"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/clinical-cases/{id}/edit": {
       "get": {
         "summary": "Read Owned Case",
@@ -1063,6 +1119,19 @@
       },
       "AttemptCreate": {
         "properties": {
+          "case_revision": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0,
+                "description": "Displayed case revision; omit only to grade the current case."
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Revision"
+          },
           "diagnosis": {
             "type": "string",
             "maxLength": 200,
@@ -1113,6 +1182,13 @@
             "format": "uuid",
             "title": "Clinical Case Id"
           },
+          "case_snapshot": {
+            "$ref": "#/components/schemas/CaseSnapshot"
+          },
+          "case_updated": {
+            "type": "boolean",
+            "title": "Case Updated"
+          },
           "title": {
             "type": "string",
             "title": "Title"
@@ -1158,6 +1234,8 @@
         "required": [
           "id",
           "clinical_case_id",
+          "case_snapshot",
+          "case_updated",
           "title",
           "archived",
           "diagnosis",
@@ -1253,6 +1331,88 @@
         ],
         "title": "AuthSession"
       },
+      "CaseManagement": {
+        "properties": {
+          "can_edit": {
+            "type": "boolean",
+            "title": "Can Edit"
+          },
+          "can_hide": {
+            "type": "boolean",
+            "title": "Can Hide"
+          }
+        },
+        "type": "object",
+        "required": [
+          "can_edit",
+          "can_hide"
+        ],
+        "title": "CaseManagement"
+      },
+      "CaseSnapshot": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "pattern": "^[^\\x00]*$",
+            "title": "Title"
+          },
+          "vignette": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "pattern": "^[^\\x00]*$",
+            "title": "Vignette"
+          },
+          "symptoms": {
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Symptoms"
+          },
+          "age_years": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 120.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Years"
+          },
+          "revision": {
+            "type": "integer",
+            "title": "Revision"
+          },
+          "accepted_diagnoses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Accepted Diagnoses"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title",
+          "vignette",
+          "symptoms",
+          "revision",
+          "accepted_diagnoses"
+        ],
+        "title": "CaseSnapshot"
+      },
       "ClinicalCase": {
         "properties": {
           "title": {
@@ -1309,6 +1469,11 @@
             "title": "Archived",
             "default": false
           },
+          "revision": {
+            "type": "integer",
+            "title": "Revision",
+            "default": 1
+          },
           "latest_score": {
             "anyOf": [
               {
@@ -1323,6 +1488,11 @@
               }
             ],
             "title": "Latest Score"
+          },
+          "latest_score_is_previous_version": {
+            "type": "boolean",
+            "title": "Latest Score Is Previous Version",
+            "default": false
           }
         },
         "additionalProperties": false,

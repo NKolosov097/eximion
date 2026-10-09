@@ -31,7 +31,7 @@ describe("richer learner answer", () => {
   it("submits alternatives without reasoning, shows only server grading and clears feedback after any edit", async () => {
     const fetch = vi.fn().mockImplementation(() => Promise.resolve(response(result)));
     vi.stubGlobal("fetch", fetch);
-    render(<AttemptForm caseId="case-id" />);
+    render(<AttemptForm caseRevision={1} caseId="case-id" />);
     fillAnswer();
     expect(screen.queryByLabelText("Your reasoning")).toBeNull();
     expect(screen.queryByTestId("attempt-answer-key")).toBeNull();
@@ -39,6 +39,7 @@ describe("richer learner answer", () => {
     await screen.findByTestId("attempt-result");
     expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
       diagnosis: "Cold", alternative_diagnoses: ["Influenza", "Pneumonia"],
+      case_revision: 1,
       guest_acknowledged: false,
     });
     expect(screen.getByTestId("attempt-score").textContent).toBe("0 / 100");
@@ -69,7 +70,7 @@ describe("richer learner answer", () => {
   ])("focuses invalid %s and preserves input", (id, value) => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
-    render(<AttemptForm caseId="case-id" />);
+    render(<AttemptForm caseRevision={1} caseId="case-id" />);
     fillAnswer();
     fill(id, value);
     fireEvent.submit(screen.getByTestId("attempt-form"));
@@ -84,7 +85,7 @@ describe("richer learner answer", () => {
   it("accepts full Unicode boundaries and five alternatives", async () => {
     const fetch = vi.fn().mockResolvedValue(response(result));
     vi.stubGlobal("fetch", fetch);
-    render(<AttemptForm caseId="case-id" />);
+    render(<AttemptForm caseRevision={1} caseId="case-id" />);
     fill("attempt-diagnosis", "Cold");
     const emoji = String.fromCodePoint(0x1f600);
     fill("attempt-alternatives", Array(5).fill(emoji.repeat(200)).join("\n"));
@@ -98,7 +99,7 @@ describe("richer learner answer", () => {
   it("disables all inputs while pending and keeps all fields after failure", async () => {
     let complete!: (value: Response) => void;
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => new Promise<Response>((resolve) => { complete = resolve; })));
-    render(<AttemptForm caseId="case-id" />);
+    render(<AttemptForm caseRevision={1} caseId="case-id" />);
     fillAnswer();
     fireEvent.submit(screen.getByTestId("attempt-form"));
     for (const id of ["attempt-diagnosis", "attempt-alternatives", "attempt-submit"])
@@ -115,11 +116,11 @@ describe("richer learner answer", () => {
     session.loading = true;
     const fetch = vi.fn().mockImplementation(() => Promise.resolve(response(result)));
     vi.stubGlobal("fetch", fetch);
-    const view = render(<AttemptForm caseId="case-id" />);
+    const view = render(<AttemptForm caseRevision={1} caseId="case-id" />);
     fireEvent.submit(screen.getByTestId("attempt-form"));
     expect(fetch).not.toHaveBeenCalled();
     session.loading = false;
-    view.rerender(<AttemptForm caseId="case-id" />);
+    view.rerender(<AttemptForm caseRevision={1} caseId="case-id" />);
     fillAnswer();
     fireEvent.submit(screen.getByTestId("attempt-form"));
     expect(fetch).not.toHaveBeenCalled();
@@ -128,14 +129,34 @@ describe("richer learner answer", () => {
     await screen.findByTestId("attempt-result");
     expect(JSON.parse(fetch.mock.calls[0][1].body).guest_acknowledged).toBe(true);
     session.user = { id: "learner-id", username: "learner" };
-    view.rerender(<AttemptForm caseId="case-id" />);
+    view.rerender(<AttemptForm caseRevision={1} caseId="case-id" />);
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect((screen.getByTestId("attempt-diagnosis") as HTMLInputElement).value).toBe("Cold");
     expect((screen.getByTestId("attempt-alternatives") as HTMLTextAreaElement).value).toBe(" Influenza \n Pneumonia ");
     expect(fetch).toHaveBeenCalledTimes(1);
     session.user = null;
-    view.rerender(<AttemptForm caseId="case-id" />);
+    view.rerender(<AttemptForm caseRevision={1} caseId="case-id" />);
     expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(false);
     expect((screen.getByTestId("attempt-submit") as HTMLButtonElement).disabled).toBe(true);
   });
+});
+
+
+it("refreshes a stale case without losing diagnoses or automatically resubmitting", async () => {
+  const fetch = vi.fn().mockImplementation(() => Promise.resolve(response({ error: { message: "This case has changed." } }, 409)));
+  vi.stubGlobal("fetch", fetch);
+  const view = render(<AttemptForm caseId="case-id" caseRevision={1} />);
+  fillAnswer();
+  fireEvent.submit(screen.getByTestId("attempt-form"));
+  fireEvent.click(await screen.findByRole("button", { name: "Refresh case" }));
+  expect(refreshRoute).toHaveBeenCalledOnce();
+  expect((screen.getByTestId("attempt-submit") as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByTestId("attempt-diagnosis") as HTMLInputElement).value).toBe("Cold");
+  view.rerender(<AttemptForm caseId="case-id" caseRevision={2} />);
+  expect(screen.queryByRole("button", { name: "Refresh case" })).toBeNull();
+  expect((screen.getByTestId("attempt-submit") as HTMLButtonElement).disabled).toBe(false);
+  expect(fetch).toHaveBeenCalledOnce();
+  fireEvent.submit(screen.getByTestId("attempt-form"));
+  await screen.findByRole("button", { name: "Refresh case" });
+  expect(JSON.parse(fetch.mock.calls[1][1].body).case_revision).toBe(2);
 });

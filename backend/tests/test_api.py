@@ -28,7 +28,7 @@ def test_create_read_grade_and_persist_across_connections(postgres, client):
     response = client.post("/api/v1/clinical-cases", json=VALID_CASE)
     assert response.status_code == 201, response.text
     case = response.json()
-    assert set(case) == {"id", "title", "vignette", "symptoms", "age_years", "created_at", "archived", "latest_score"}
+    assert set(case) == {"id", "title", "vignette", "symptoms", "age_years", "created_at", "archived", "latest_score", "revision", "latest_score_is_previous_version"}
     assert response.headers["location"] == f"/api/v1/clinical-cases/{case['id']}"
     assert case["symptoms"] == ["Fever", "Cough"]
     assert case["created_at"].endswith(("Z", "+00:00"))
@@ -250,7 +250,7 @@ def test_catalog_order_pagination_and_hidden_answers(postgres, client, monkeypat
     assert first["has_more"] is True
     assert second["has_more"] is False
     for case in first["items"] + second["items"]:
-        assert set(case) == {"id", "title", "vignette", "symptoms", "age_years", "created_at", "archived", "latest_score"}
+        assert set(case) == {"id", "title", "vignette", "symptoms", "age_years", "created_at", "archived", "latest_score", "revision", "latest_score_is_previous_version"}
         assert case["symptoms"] == ["Fever", "Cough"]
     assert client.get("/api/v1/clinical-cases?page=3&page_size=2").json() == {"items": [], "has_more": False}
 

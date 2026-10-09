@@ -507,7 +507,7 @@ export function AuthorForm() {
               </p>
             )}
             <GuestSubmissionNotice kind="case" acknowledged={guestAcknowledged} onChange={setGuestAcknowledged} disabled={pending !== null} />
-            <p className="field-hint">Signing in links this case to your profile; the Author key is still required. Owned cases can be edited only before the first answer, and archived later.</p>
+            <p className="field-hint">Signing in links this case to your profile; the Author key is still required. You can edit or hide your own cases. Previous answers keep their original case and score.</p>
             <div className="save-actions">
               <button
                 className="button"

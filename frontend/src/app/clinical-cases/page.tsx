@@ -52,7 +52,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
         <ul className="catalog-list">
           {cases.items.map((clinicalCase) => (
             <li className="panel" key={clinicalCase.id} data-testid="catalog-case">
-              {clinicalCase.latest_score != null && <p className="age-badge">Answered - Latest score: {clinicalCase.latest_score} / 100</p>}
+              {clinicalCase.latest_score != null && <p className="age-badge">Answered - Latest score: {clinicalCase.latest_score} / 100{clinicalCase.latest_score_is_previous_version && " (earlier version)"}</p>}
               <h2><Link className="text-link" href={`/clinical-cases/${clinicalCase.id}`}>{clinicalCase.title}</Link>{DEMO_CASE_IDS.includes(clinicalCase.id) && <span className="age-badge demo-badge" data-testid="case-demo-badge">{messages.demoBadge}</span>}</h2>
               <p className="catalog-summary">{Array.from(clinicalCase.vignette).slice(0, 240).join("")}{Array.from(clinicalCase.vignette).length > 240 ? "..." : ""}</p>
               <span className="age-badge">{messages.age}: {clinicalCase.age_years == null ? messages.ageUnknown : `${clinicalCase.age_years} ${messages.years}`}</span>
