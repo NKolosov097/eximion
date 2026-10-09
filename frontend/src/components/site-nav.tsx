@@ -53,7 +53,7 @@ export function SiteNav() {
       >
         {messages.navAnalytics}
       </Link>
-      <Link href="/account" className="nav-link" data-testid="nav-account" aria-label={user ? `${user.username}'s profile` : undefined} aria-current={pathname === "/account" ? "page" : undefined}>{user ? <><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></svg><span>{user.username}</span></> : "Sign in"}</Link>
+      <Link href="/account" className="nav-link" data-testid="nav-account" aria-label={user ? `${user.username}'s profile` : undefined} aria-current={pathname === "/account" ? "page" : undefined}>{user ? user.username : "Sign in"}</Link>
       <a
         href={`${apiBaseUrl()}/docs`}
         className="nav-link"

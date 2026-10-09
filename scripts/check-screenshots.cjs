@@ -139,6 +139,10 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
         await page.goto(origin + route);
         if (ready) await visible(ready).waitFor();
         if (name === 'auth-dialog') {
+          await page.getByRole('heading', { name: 'Your learning profile' }).waitFor();
+          const guest = await page.locator('.account-guest').boundingBox();
+          const header = await page.locator('.site-header').boundingBox();
+          assert(guest && header && guest.y - header.y - header.height >= 24, 'Guest profile needs space below the header');
           await page.getByRole('button', { name: 'Sign in / Register' }).click();
           const dialog = page.getByRole('dialog');
           await dialog.waitFor();
@@ -153,6 +157,7 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
         if (name === 'account') {
           await page.getByRole('heading', { name: 'Answer history' }).waitFor();
           assert.equal(await visible('nav-account').innerText(), user.username);
+          assert.equal(await visible('nav-account').locator('svg').count(), 0);
           const title = await page.getByRole('heading', { name: `${user.username}'s profile` }).boundingBox();
           const signOut = await page.getByRole('button', { name: 'Sign out', exact: true }).boundingBox();
           const headingRow = await page.locator('.profile-heading-row').boundingBox();

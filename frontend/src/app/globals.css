@@ -449,6 +449,7 @@ fieldset {
   border-radius: var(--radius);
   padding: 28px;
 }
+.account-guest { margin-top: 24px; }
 .section-heading h2 {
   font-size: 17px;
   margin-bottom: 8px;

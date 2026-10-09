@@ -8,13 +8,13 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/account" }));
 afterEach(() => { cleanup(); session.user = { id: "learner", username: "case_learner" }; session.loading = false; });
 
 describe("account catalog controls", () => {
-  it("shows the signed-in username with an accessible profile link and decorative icon", () => {
+  it("shows the signed-in username with an accessible profile link and no icon", () => {
     render(<SiteNav />);
     const link = screen.getByRole("link", { name: "case_learner's profile" });
     expect(link.textContent).toBe("case_learner");
     expect(link.getAttribute("href")).toBe("/account");
     expect(link.getAttribute("aria-current")).toBe("page");
-    expect(link.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
+    expect(link.querySelector('svg[aria-hidden="true"]')).toBeNull();
   });
   it("keeps the guest sign-in link and hides the private filter", () => {
     session.user = null;
