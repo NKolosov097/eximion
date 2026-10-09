@@ -4,7 +4,7 @@ A small educational clinical-case application: FastAPI, PostgreSQL, Next.js/Type
 
 ## Live application
 
-Open https://eximion-frontend-497115726994.europe-west3.run.app . API documentation: https://eximion-backend-497115726994.europe-west3.run.app/docs . The demo can be solved without an author key. Creation, Gemini extraction and private Analytics require the private author key stored locally in `.local/cloud-secrets.json` (`author_api_key`); never commit or share that file because it also contains database credentials.
+Open https://eximion-frontend-497115726994.europe-west3.run.app . API documentation: https://eximion-backend-497115726994.europe-west3.run.app/docs . All three seeded demo cases can be solved without an author key. The home-page demo link continues to open the original fever-and-cough case. Creation, Gemini extraction and private Analytics require the private author key stored locally in `.local/cloud-secrets.json` (`author_api_key`); never commit or share that file because it also contains database credentials.
 
 Both applications and PostgreSQL run in Frankfurt. Gemini uses the EU endpoint. Real extraction, browser authoring, scoring, persistence and mobile layout have been verified; see [deployment metadata](docs/deployment.json) and [verification record](docs/progress.md).
 
@@ -34,7 +34,7 @@ Gemini extraction requires workload credentials plus `GOOGLE_CLOUD_PROJECT`, `GO
 1. Open **Create case**, enter the author key and paste synthetic clinical text.
 2. Extract, edit the structured draft, and remove any revealed diagnosis. Automatic omission is not guaranteed.
 3. Supply your own reference diagnosis and allowed variants, confirm review, then save.
-4. Submit a primary diagnosis and optional alternatives/reasoning. The primary diagnosis is graded by exact normalized reference/variant matching (100 or 0). Matching alternatives are highlighted; unlisted alternatives are not judged incorrect. The answer key appears after submission.
+4. Submit a primary diagnosis and optional alternatives. The primary diagnosis is graded by exact normalized reference/variant matching (100 or 0). Matching alternatives are highlighted; unlisted alternatives are not judged incorrect. The answer key appears after submission.
 
 Demo case: `/clinical-cases/4613eeb7-7064-41da-bb06-62630b3eaebc`. Synthetic reference: Influenza; accepted variant: Flu. Public case and catalog responses hide the answer key. After a valid answer is submitted, the response shows the reference and accepted names for learning.
 
@@ -90,7 +90,7 @@ docker run --rm --ipc=host -v "${PWD}/.local/screenshot-results:/app/.local/scre
 
 Screenshot comparison tolerates one RGB level of antialiasing rounding between Linux hosts; dimensions and alpha remain exact.
 
-Fourteen reviewed baselines in `scripts/screenshots/linux-chromium` cover Home, Cases, a case, answer feedback, Profile, Analytics and the author form on desktop/mobile. After an intentional UI change, generate candidates with the command below, inspect all changed images, then rerun the comparison (rebuild the image to include the reviewed baselines):
+Sixteen reviewed baselines in `scripts/screenshots/linux-chromium` cover Home, Cases, a case, answer feedback, Profile, the sign-in dialog, Analytics and the author form on desktop/mobile. After an intentional UI change, generate candidates with the command below, inspect all changed images, then rerun the comparison (rebuild the image to include the reviewed baselines):
 
 ```powershell
 docker run --rm --ipc=host -v "${PWD}/scripts/screenshots/linux-chromium:/app/scripts/screenshots/linux-chromium" clinical-cases-screenshots node scripts/check-screenshots.cjs --update-baselines
@@ -102,7 +102,7 @@ The header links to Home, Cases, Create case, Analytics and API Docs (a new tab)
 
 Unsaved author content is kept only in memory. Links and reload/close warn before leaving; same-document browser Back also warns in browsers with the Navigation API. Legacy browsers without that API cannot cancel SPA history traversal. No draft or author key is written to browser storage.
 
-All cases supports case-insensitive literal search in case titles and descriptions. Submit Search (or Enter), use Clear search to reset, and share the resulting q URL; pagination keeps the filter. Hidden grading answers are never searched.
+All cases supports case-insensitive literal search in case titles and descriptions. Results update after a 300 ms pause in typing; Enter and My answers apply immediately. Clear search resets the text while preserving the answer filter. Share the resulting q URL; pagination keeps the filters. Hidden grading answers are never searched.
 
 Open **Analytics** in the header, enter the Author key and select the last 7, 30 or 90 days. The private dashboard shows cases created, attempts submitted and the percentage of correct answers from existing records. It counts submissions rather than unique people and adds no visitor tracking. See [analytics access and calculations](docs/observability.md#private-application-analytics).
 

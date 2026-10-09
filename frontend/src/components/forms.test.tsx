@@ -300,7 +300,6 @@ describe("diagnosis submission", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       diagnosis: "FLU",
       alternative_diagnoses: [],
-      reasoning: "",
       guest_acknowledged: false,
     });
     fireEvent.change(screen.getByLabelText(messages.diagnosisLabel), {

@@ -51,7 +51,7 @@ const listen = async (server) => {
     }
     if (requestPath === `/api/v1/clinical-cases/${id}`) caseFetches++;
     if (requestPath === "/api/v1/clinical-cases") {
-      catalogRequests.push({ page: searchParams.get("page"), q: searchParams.get("q") });
+      catalogRequests.push({ page: searchParams.get("page"), q: searchParams.get("q"), answered: searchParams.get("answered") });
     }
     if (holdCatalog && requestPath === "/api/v1/clinical-cases")
       await new Promise((resolve) => { releaseCatalog = resolve; });
@@ -203,10 +203,23 @@ const listen = async (server) => {
     assert.equal(await page.getByTestId("nav-all-cases").filter({ visible: true }).getAttribute("aria-current"), "page");
     await page.getByRole("link", { name: "Next page", exact: true }).click();
     await page.waitForURL((url) => url.searchParams.get("page") === "2");
-    await page.getByRole("searchbox", { name: "Search titles and descriptions" }).fill("dry cough");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
-    await page.waitForURL((url) => url.pathname === "/clinical-cases" && url.searchParams.get("q") === "dry cough");
-    assert.deepEqual(catalogRequests.at(-1), { page: "1", q: "dry cough" }, "Search starts on page one and reaches the API.");
+    const liveSearch = page.getByRole("searchbox", { name: "Search titles and descriptions" });
+    assert.equal(await page.getByRole("button", { name: "Search", exact: true }).count(), 0, "Search is automatic and has no submit button.");
+    const searchFinished = (query) => page.waitForEvent("requestfinished", {
+      predicate: request => { const url = new URL(request.url()); return url.pathname === "/clinical-cases" && url.searchParams.get("q") === query; },
+    });
+    let settledSearch = searchFinished("dry");
+    await liveSearch.fill("dry");
+    await page.waitForURL(url => url.pathname === "/clinical-cases" && url.searchParams.get("q") === "dry");
+    await settledSearch;
+    assert(await liveSearch.evaluate(element => document.activeElement === element && element.selectionStart === 3 && element.selectionEnd === 3), "Search keeps focus and caret after a debounced response.");
+    settledSearch = searchFinished("dry cough");
+    await liveSearch.pressSequentially(" cough");
+    await page.waitForURL(url => url.pathname === "/clinical-cases" && url.searchParams.get("q") === "dry cough");
+    await settledSearch;
+    assert.equal(await liveSearch.inputValue(), "dry cough", "Typing can continue after the previous search settles.");
+    assert(await liveSearch.evaluate(element => document.activeElement === element && element.selectionStart === 9 && element.selectionEnd === 9), "A second debounced response also preserves caret and focus.");
+    assert.deepEqual(catalogRequests.at(-1), { page: "1", q: "dry cough", answered: "all" }, "Search starts on page one and reaches the API.");
     const nextSearchPage = new URL(await page.getByRole("link", { name: "Next page", exact: true }).getAttribute("href"), origin);
     assert.equal(nextSearchPage.searchParams.get("q"), "dry cough");
     await page.setViewportSize({ width: 320, height: 900 });
@@ -216,9 +229,14 @@ const listen = async (server) => {
     await page.waitForURL((url) => url.searchParams.get("page") === "2" && url.searchParams.get("q") === "dry cough");
     await page.getByRole("link", { name: "Previous page", exact: true }).click();
     await page.waitForURL((url) => url.searchParams.get("page") === "1" && url.searchParams.get("q") === "dry cough");
-    await page.getByRole("searchbox", { name: "Search titles and descriptions" }).fill("no-such-case");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await liveSearch.fill("no-such-case");
     await page.getByTestId("catalog-search-empty").filter({ visible: true }).waitFor();
+    await page.goBack();
+    await page.waitForURL(url => url.searchParams.get("q") === "dry cough");
+    assert.equal(await liveSearch.inputValue(), "dry cough", "Back synchronizes the search input with the URL.");
+    await page.goForward();
+    await page.waitForURL(url => url.searchParams.get("q") === "no-such-case");
+    assert.equal(await liveSearch.inputValue(), "no-such-case", "Forward restores the later search query.");
     await page.getByRole("link", { name: "Clear search", exact: true }).click();
     await page.waitForURL((url) => url.pathname === "/clinical-cases" && !url.searchParams.has("q"));
     await page.getByTestId("catalog-case").filter({ visible: true }).waitFor();
@@ -590,10 +608,21 @@ const listen = async (server) => {
     assert(!(await page.evaluate(() => document.cookie)).includes("browser-private-session"), "Browser scripts cannot read the session.");
     assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
     catalogEmpty = false;
-    await page.getByTestId("nav-all-cases").filter({ visible: true }).click();
-    await page.getByLabel("My answers").selectOption("answered");
-    await page.getByRole("button", { name: "Search", exact: true }).click();
-    await page.waitForURL(url => url.searchParams.get("answered") === "answered");
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.goto(`${origin}/clinical-cases?page=2&q=dry+cough&answered=all`);
+    const answerFilter = page.getByLabel("My answers").filter({ visible: true });
+    await answerFilter.waitFor();
+    const searchField = page.getByRole("searchbox", { name: "Search titles and descriptions" });
+    assert.equal(await page.getByRole("button", { name: "Search", exact: true }).count(), 0);
+    const controlBounds = await Promise.all([searchField, answerFilter].map(control => control.boundingBox()));
+    assert(controlBounds.every(Boolean), "Search and filter controls are visible.");
+    const controlHeights = controlBounds.map(bounds => bounds.height);
+    assert(Math.max(...controlHeights) - Math.min(...controlHeights) <= 1, "Search input and answer filter have equal heights.");
+    assert(await answerFilter.evaluate(element => Number.parseFloat(getComputedStyle(element).paddingRight) >= 24), "Answer filter reserves space for its dropdown arrow.");
+    await answerFilter.selectOption("answered");
+    await page.waitForURL(url => url.searchParams.get("answered") === "answered" && (url.searchParams.get("page") ?? "1") === "1");
+    assert.equal(new URL(page.url()).searchParams.get("q"), "dry cough", "Changing answer filter preserves the search text.");
+    assert.deepEqual(catalogRequests.at(-1), { page: "1", q: "dry cough", answered: "answered" }, "Answer filter submits immediately and resets pagination.");
     await page.getByText("Answered - Latest score: 100 / 100").waitFor();
     await page.getByRole("link", { name: draft.title, exact: true }).click();
     await page.getByTestId("attempt-diagnosis").filter({ visible: true }).fill("Cold");
@@ -609,6 +638,9 @@ const listen = async (server) => {
 
     const report = {
       account_real_proxy_cookie_login_profile_logout: true,
+      answer_filter_auto_submit_preserves_query_resets_page: true,
+      catalog_controls_equal_height_and_arrow_space: true,
+      debounced_search_focus_caret_and_history: true,
       status: "passed",
       consistent_route_section_widths: true,
       header_home_cases_create_and_brand_navigation: true,

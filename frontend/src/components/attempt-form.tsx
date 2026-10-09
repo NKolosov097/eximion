@@ -7,7 +7,7 @@ import { useSession } from "@/components/session-provider";
 import { displayError, request } from "@/lib/api";
 import { messages } from "@/lib/messages";
 import type { AttemptCreate, AttemptResult } from "@/lib/types";
-import { lines, trimText } from "@/lib/text";
+import { lines } from "@/lib/text";
 import { listError, textError } from "@/lib/validation";
 
 interface AttemptFormProps {
@@ -19,7 +19,6 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
   const { user, loading } = useSession();
   const [guestAcknowledged, setGuestAcknowledged] = useState(false);
   const [alternatives, setAlternatives] = useState("");
-  const [reasoning, setReasoning] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
   const [pending, setPending] = useState(false);
   const [invalid, setInvalid] = useState("");
@@ -40,7 +39,6 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
       ["alternative-diagnoses", alternativeDiagnoses.length > 5
         ? messages.attemptAlternativesError
         : listError(alternativeDiagnoses, 0, messages.attemptAlternativesError)],
-      ["reasoning", textError(reasoning, 0, 2000)],
     ].find(([, message]) => message);
     setInvalid(validation?.[0] ?? "");
     if (validation) {
@@ -53,11 +51,10 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
     setPending(true);
     setError("");
     setResult(null);
-    const body: AttemptCreate = {
+    const body: Omit<AttemptCreate, "reasoning"> = {
       diagnosis,
       guest_acknowledged: !user && guestAcknowledged,
       alternative_diagnoses: alternativeDiagnoses,
-      reasoning: trimText(reasoning),
     };
     try {
       setResult(
@@ -126,21 +123,6 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
             aria-invalid={invalid === "alternative-diagnoses"}
             aria-describedby={`alternative-diagnoses-hint${error ? " attempt-error" : ""}`}
           />
-          <label htmlFor="reasoning">{messages.attemptReasoningLabel}</label>
-          <p className="field-hint" id="reasoning-hint">{messages.attemptReasoningHint}</p>
-          <textarea
-            id="reasoning"
-            data-testid="attempt-reasoning"
-            rows={4}
-            value={reasoning}
-            onChange={(event) => {
-              setReasoning(event.target.value);
-              clearFeedback();
-            }}
-            disabled={pending || loading}
-            aria-invalid={invalid === "reasoning"}
-            aria-describedby={`reasoning-hint${error ? " attempt-error" : ""}`}
-          />
         </div>
         <GuestSubmissionNotice
           kind="attempt"
@@ -182,7 +164,7 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
                 <h3>{messages.attemptAnswerKey}</h3>
                 <ul>{result.accepted_diagnoses.map((value, index) => <li key={index}>{value}</li>)}</ul>
               </div>
-              {(lines(alternatives).length > 0 || trimText(reasoning)) && (
+              {lines(alternatives).length > 0 && (
                 <div className="attempt-notes-recap" data-testid="attempt-notes-recap">
                   <h3>{messages.attemptNotesTitle}</h3>
                   {lines(alternatives).length > 0 && (
@@ -200,7 +182,6 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
                       })}
                     </ul>
                   )}
-                  {trimText(reasoning) && <p>{trimText(reasoning)}</p>}
                 </div>
               )}
               <p className="field-hint">{messages.another}</p>

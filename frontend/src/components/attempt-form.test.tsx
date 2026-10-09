@@ -19,7 +19,6 @@ const fill = (id: string, value: string) => fireEvent.change(screen.getByTestId(
 const fillAnswer = () => {
   fill("attempt-diagnosis", "Cold");
   fill("attempt-alternatives", " Influenza \n Pneumonia ");
-  fill("attempt-reasoning", " Fever and cough suggest an infection. ");
 };
 
 beforeEach(() => {
@@ -29,17 +28,18 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 describe("richer learner answer", () => {
-  it("submits ungraded notes, shows only server grading and clears feedback after any edit", async () => {
+  it("submits alternatives without reasoning, shows only server grading and clears feedback after any edit", async () => {
     const fetch = vi.fn().mockImplementation(() => Promise.resolve(response(result)));
     vi.stubGlobal("fetch", fetch);
     render(<AttemptForm caseId="case-id" />);
     fillAnswer();
+    expect(screen.queryByLabelText("Your reasoning")).toBeNull();
     expect(screen.queryByTestId("attempt-answer-key")).toBeNull();
     fireEvent.submit(screen.getByTestId("attempt-form"));
     await screen.findByTestId("attempt-result");
     expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({
       diagnosis: "Cold", alternative_diagnoses: ["Influenza", "Pneumonia"],
-      reasoning: "Fever and cough suggest an infection.", guest_acknowledged: false,
+      guest_acknowledged: false,
     });
     expect(screen.getByTestId("attempt-score").textContent).toBe("0 / 100");
     expect(refreshRoute).toHaveBeenCalledOnce();
@@ -58,7 +58,7 @@ describe("richer learner answer", () => {
     expect(screen.queryByTestId("attempt-result")).toBeNull();
     fireEvent.submit(screen.getByTestId("attempt-form"));
     await screen.findByTestId("attempt-result");
-    fill("attempt-reasoning", "Different reasoning");
+    fill("attempt-diagnosis", "Updated diagnosis");
     expect(screen.queryByTestId("attempt-result")).toBeNull();
   });
 
@@ -66,8 +66,6 @@ describe("richer learner answer", () => {
     ["attempt-alternatives", "A\nB\nC\nD\nE\nF"],
     ["attempt-alternatives", "a".repeat(201)],
     ["attempt-alternatives", "a\0b"],
-    ["attempt-reasoning", "a".repeat(2001)],
-    ["attempt-reasoning", "a\0b"],
   ])("focuses invalid %s and preserves input", (id, value) => {
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
@@ -90,13 +88,11 @@ describe("richer learner answer", () => {
     fill("attempt-diagnosis", "Cold");
     const emoji = String.fromCodePoint(0x1f600);
     fill("attempt-alternatives", Array(5).fill(emoji.repeat(200)).join("\n"));
-    fill("attempt-reasoning", ` ${emoji.repeat(2000)} `);
     fireEvent.submit(screen.getByTestId("attempt-form"));
     await screen.findByTestId("attempt-result");
     const body = JSON.parse(fetch.mock.calls[0][1].body);
     expect(body.alternative_diagnoses).toHaveLength(5);
     expect([...body.alternative_diagnoses[0]]).toHaveLength(200);
-    expect([...body.reasoning]).toHaveLength(2000);
   });
 
   it("disables all inputs while pending and keeps all fields after failure", async () => {
@@ -105,14 +101,13 @@ describe("richer learner answer", () => {
     render(<AttemptForm caseId="case-id" />);
     fillAnswer();
     fireEvent.submit(screen.getByTestId("attempt-form"));
-    for (const id of ["attempt-diagnosis", "attempt-alternatives", "attempt-reasoning", "attempt-submit"])
+    for (const id of ["attempt-diagnosis", "attempt-alternatives", "attempt-submit"])
       expect((screen.getByTestId(id) as HTMLInputElement).disabled).toBe(true);
     complete(response({ error: { message: "Temporary failure" } }, 503));
     await screen.findByTestId("attempt-error");
     expect(refreshRoute).not.toHaveBeenCalled();
     expect((screen.getByTestId("attempt-diagnosis") as HTMLInputElement).value).toBe("Cold");
     expect((screen.getByTestId("attempt-alternatives") as HTMLTextAreaElement).value).toBe(" Influenza \n Pneumonia ");
-    expect((screen.getByTestId("attempt-reasoning") as HTMLTextAreaElement).value).toBe(" Fever and cough suggest an infection. ");
   });
 
   it("blocks loading and unacknowledged guests, sends explicit consent and resets it after sign-in", async () => {
@@ -137,7 +132,6 @@ describe("richer learner answer", () => {
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect((screen.getByTestId("attempt-diagnosis") as HTMLInputElement).value).toBe("Cold");
     expect((screen.getByTestId("attempt-alternatives") as HTMLTextAreaElement).value).toBe(" Influenza \n Pneumonia ");
-    expect((screen.getByTestId("attempt-reasoning") as HTMLTextAreaElement).value).toBe(" Fever and cough suggest an infection. ");
     expect(fetch).toHaveBeenCalledTimes(1);
     session.user = null;
     view.rerender(<AttemptForm caseId="case-id" />);

@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import Form from "next/form";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { serverRequest } from "@/lib/server-api";
-import { CatalogFilter } from "@/components/catalog-filter";
-import { DEMO_CASE_ID, messages } from "@/lib/messages";
+import { CatalogSearch } from "@/components/catalog-search";
+import { DEMO_CASE_IDS, messages } from "@/lib/messages";
 import type { ClinicalCasePage } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -39,21 +38,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
         <h1>{messages.back}</h1>
         <p className="lead">{messages.catalogDescription}</p>
       </div>
-      <Form key={`${query}:${answered}`} action="/clinical-cases" className="catalog-search">
-        <div className="catalog-search-field">
-          <label htmlFor="case-search">{messages.searchLabel}</label>
-          <input
-            id="case-search"
-            type="search"
-            name="q"
-            placeholder={messages.searchPlaceholder}
-            defaultValue={query}
-          />
-        </div>
-        <CatalogFilter value={answered} />
-        <button className="button" type="submit">{messages.search}</button>
-        {query && <Link className="text-link" href="/clinical-cases">{messages.clearSearch}</Link>}
-      </Form>
+      <CatalogSearch query={query} answered={answered} page={page} />
       {cases.items.length === 0 ? (
         <div className="panel" data-testid={query && page === 1 ? "catalog-search-empty" : "catalog-empty"}>
           <p>{page === 1 && answered !== "all" ? "No cases match your answer filter." : query && page === 1 ? messages.catalogSearchEmpty : page === 1 ? messages.catalogEmpty : messages.catalogPageEmpty}</p>
@@ -68,7 +53,7 @@ export default async function CatalogPage({ searchParams }: CatalogPageProps) {
           {cases.items.map((clinicalCase) => (
             <li className="panel" key={clinicalCase.id} data-testid="catalog-case">
               {clinicalCase.latest_score != null && <p className="age-badge">Answered - Latest score: {clinicalCase.latest_score} / 100</p>}
-              <h2><Link className="text-link" href={`/clinical-cases/${clinicalCase.id}`}>{clinicalCase.title}</Link> {clinicalCase.id === DEMO_CASE_ID && <span className="age-badge demo-badge" data-testid="case-demo-badge">{messages.demoBadge}</span>}</h2>
+              <h2><Link className="text-link" href={`/clinical-cases/${clinicalCase.id}`}>{clinicalCase.title}</Link>{DEMO_CASE_IDS.includes(clinicalCase.id) && <span className="age-badge demo-badge" data-testid="case-demo-badge">{messages.demoBadge}</span>}</h2>
               <p className="catalog-summary">{Array.from(clinicalCase.vignette).slice(0, 240).join("")}{Array.from(clinicalCase.vignette).length > 240 ? "..." : ""}</p>
               <span className="age-badge">{messages.age}: {clinicalCase.age_years == null ? messages.ageUnknown : `${clinicalCase.age_years} ${messages.years}`}</span>
             </li>

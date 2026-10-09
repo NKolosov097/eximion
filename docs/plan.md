@@ -71,4 +71,18 @@ Tests after implementation, without mandatory test-first. Backend integration us
 - [x] Specify username/password sessions, guest consent, private history, ownership and archival in accounts-spec.md and accounts-plan.md.
 - [x] Implement backend migration, authentication and ownership; add same-origin session proxy, modal sign-in and profile.
 - [x] Verify PostgreSQL migration preservation, ownership isolation, concurrent answer/edit locking, generic login errors and form preservation.
-- [ ] Review all fourteen screenshots, pass release CI, migrate/deploy and verify real account flows.
+- [x] Review all fourteen screenshots, pass release CI, migrate/deploy and verify real account flows.
+
+## Additional demonstration cases
+- Extend the existing seed with two fixed UUID records while preserving DEMO_ID, and iterate insert-if-missing over all three. Verify real PostgreSQL idempotence, original ID, unowned state and preservation of existing changes; expose the same three IDs to Demo badges.
+
+## Learner and account UI refinement
+- [x] Remove reasoning from the learner form and update payload/preservation tests; retain backend and historical data.
+- [x] Adjust Demo spacing/seed identity, account navigation, modal controls and profile header.
+- [x] Run frontend tests (68 passing) and typecheck.
+- [x] Review coordinated browser checks and sixteen desktop/mobile screenshots, including the authentication dialog. Final suite: 73 frontend tests, typecheck, production build, browser harness and real local checks passed.
+
+- [x] Align catalog search control heights and inset arrow; submit answer filter automatically with focused coverage.
+
+- [x] Replace manual search with a mounted client search form, 300ms debounce and immediate answer filter; focused tests verify draft/focus/history/timer behavior. Browser verification remains coordinated with the release owner.
+

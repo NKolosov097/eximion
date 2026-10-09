@@ -171,7 +171,7 @@ describe("case catalog", () => {
     expect(next.searchParams.get("page")).toBe("3");
     expect(next.searchParams.get("q")).toBe(query.trim());
     expect((screen.getByLabelText(messages.searchLabel) as HTMLInputElement).value).toBe(query.trim());
-    expect(screen.getByRole("link", { name: messages.clearSearch }).getAttribute("href")).toBe("/clinical-cases");
+    expect(screen.getByRole("link", { name: messages.clearSearch }).getAttribute("href")).toBe("/clinical-cases?answered=all");
     expect(screen.getByText(`${messages.age}: ${messages.ageUnknown}`)).toBeTruthy();
     const requestedUrl = new URL(fetch.mock.calls[0][0]);
     expect(Object.fromEntries(requestedUrl.searchParams)).toEqual({ page: "2", page_size: "20", answered: "all", q: query.trim() });
@@ -185,7 +185,7 @@ describe("case catalog", () => {
     render(await CatalogPage({ searchParams: Promise.resolve({ q: "missing" }) }));
     expect(screen.getByTestId("catalog-search-empty").textContent).toContain(messages.catalogSearchEmpty);
     expect(screen.queryByTestId("catalog-empty")).toBeNull();
-    expect(screen.getByRole("link", { name: messages.clearSearch }).getAttribute("href")).toBe("/clinical-cases");
+    expect(screen.getByRole("link", { name: messages.clearSearch }).getAttribute("href")).toBe("/clinical-cases?answered=all");
   });
 
   it.each([1, 3])("offers a useful empty state on page %i", async (page) => {

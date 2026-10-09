@@ -36,7 +36,7 @@ export function AccountDashboard() {
   }
   if (loading) return <p role="status">Checking sign-in status...</p>;
   if (!user) return <div className="panel"><h1>Your learning profile</h1><p>Sign in to save answers and manage your own cases. Previous guest submissions cannot be added to your account.</p><button className="button" onClick={openLogin}>Sign in / Register</button><p className="field-hint">Username and password only. No email or password recovery.</p></div>;
-  return <div className="case-page" data-testid="account-dashboard"><div className="page-heading"><h1>{user.username}'s profile</h1><p>Your answers and the cases you created while signed in.</p><button className="button button-secondary" onClick={logout} disabled={pending}>Sign out</button></div>
+  return <div className="case-page" data-testid="account-dashboard"><div className="page-heading"><div className="profile-heading-row"><h1>{user.username}'s profile</h1><button className="button button-danger" onClick={logout} disabled={pending}>Sign out</button></div><p>Your answers and the cases you created while signed in.</p></div>
     {error && <div role="alert" className="error-message">{error} <button className="text-link" onClick={() => setRevision(r => r + 1)}>Retry</button></div>}
     {!profile && !error && <p role="status">Loading your profile...</p>}
     {profile && <>

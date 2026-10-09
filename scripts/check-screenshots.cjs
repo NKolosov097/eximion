@@ -131,21 +131,40 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
         ['case', `/clinical-cases/${id}`, 'case-title'],
         ['case-feedback', `/clinical-cases/${id}`, 'case-title'],
         ['account', '/account', 'account-dashboard'],
+        ['auth-dialog', '/account', null],
         ['analytics', '/analytics', 'analytics-initial'],
         ['author', '/clinical-cases/new', 'author-source-text'],
       ]) {
         signedIn = name === "account";
         await page.goto(origin + route);
-        await visible(ready).waitFor();
+        if (ready) await visible(ready).waitFor();
+        if (name === 'auth-dialog') {
+          await page.getByRole('button', { name: 'Sign in / Register' }).click();
+          const dialog = page.getByRole('dialog');
+          await dialog.waitFor();
+          const submit = await dialog.getByRole('button', { name: 'Sign in', exact: true }).boundingBox();
+          const cancel = await dialog.getByRole('button', { name: 'Cancel' }).boundingBox();
+          const toggle = await dialog.getByRole('button', { name: 'Need an account? Register' }).boundingBox();
+          assert(submit && cancel && toggle);
+          assert(Math.abs(submit.width - cancel.width) <= 1, 'Auth actions must have equal widths');
+          assert(Math.abs(submit.x - toggle.x) <= 1 && Math.abs(cancel.x + cancel.width - toggle.x - toggle.width) <= 1, 'Auth actions and toggle must share full row width');
+        }
+        if (name === 'catalog') assert.equal(await page.getByRole('button', { name: 'Search', exact: true }).count(), 0);
         if (name === 'account') {
           await page.getByRole('heading', { name: 'Answer history' }).waitFor();
+          assert.equal(await visible('nav-account').innerText(), user.username);
+          const title = await page.getByRole('heading', { name: `${user.username}'s profile` }).boundingBox();
+          const signOut = await page.getByRole('button', { name: 'Sign out', exact: true }).boundingBox();
+          const headingRow = await page.locator('.profile-heading-row').boundingBox();
+          assert(title && signOut && headingRow);
+          assert(Math.abs(signOut.x + signOut.width - headingRow.x - headingRow.width) <= 1, 'Sign out must align right');
+          if (size === 'desktop') assert(Math.abs(title.y + title.height / 2 - signOut.y - signOut.height / 2) <= 1, 'Profile title and Sign out must share a row');
           assert.equal(await page.locator('.profile-list').filter({ visible: true }).first().locator('li').count(), 2);
           assert(await page.getByRole('link', { name: 'Edit', exact: true }).isVisible());
         }
         if (name === 'case-feedback') {
           await visible('attempt-diagnosis').fill('Common cold');
           await visible('attempt-alternatives').fill('Flu\nAsthma');
-          await visible('attempt-reasoning').fill('Fever and cough suggest a respiratory infection.');
           await page.getByRole('checkbox', { name: 'I understand and want to submit as a guest.' }).check();
           await visible('attempt-submit').click();
           await visible('attempt-result').waitFor();

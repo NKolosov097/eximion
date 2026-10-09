@@ -139,13 +139,11 @@ export const messages = {
   diagnosisLabel: "Primary diagnosis",
   attemptAlternativesLabel: "Alternative diagnoses",
   attemptAlternativesHint: "Optional, one per line, up to 5. These are your other hypotheses, not accepted answers. They do not affect your score.",
-  attemptReasoningLabel: "Your reasoning",
-  attemptReasoningHint: "Optional, up to 2,000 characters. Explain which clinical clues led to your answer. This text is not graded.",
   attemptAlternativesError: "Enter no more than 5 alternatives, each containing 1-200 characters.",
   attemptAnswerKey: "Answer key / Accepted diagnoses",
   attemptAcceptedMatch: "Accepted match",
   attemptNotAssessed: "Not listed in the answer key; not assessed",
-  attemptNotesTitle: "Your notes (not graded)",
+  attemptNotesTitle: "Your alternative diagnoses (not graded)",
   diagnosisPlaceholder: "Enter a diagnosis",
   diagnosisHint:
     "Only your primary diagnosis is scored against the reference or an accepted name. Capitalization and spacing do not matter.",
@@ -173,3 +171,5 @@ export const messages = {
 };
 
 export const DEMO_CASE_ID = "4613eeb7-7064-41da-bb06-62630b3eaebc";
+
+export const DEMO_CASE_IDS: readonly string[] = [DEMO_CASE_ID, "fbd148cb-8719-4e31-81a7-e0577c327038", "7bea171a-1cb8-4d06-bbd7-1b480a5c8c85"];

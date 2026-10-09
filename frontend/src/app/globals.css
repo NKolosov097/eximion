@@ -1091,6 +1091,7 @@ textarea:focus-visible {
   margin-top: 24px;
 }
 .catalog-search {
+  --catalog-control-height: 48px;
   display: flex;
   align-items: end;
   flex-wrap: wrap;
@@ -1306,4 +1307,23 @@ textarea:focus-visible {
   background: var(--soft);
   color: var(--green-dark);
   vertical-align: middle;
+}
+
+.catalog-list .demo-badge { margin-left: 10px; }
+.auth-actions { flex-wrap: nowrap; }
+.auth-actions > .button { flex: 1; min-width: 0; padding-inline: 12px; white-space: normal; }
+.auth-mode-toggle { width: 100%; justify-content: center; text-align: center; }
+.profile-heading-row { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; }
+.profile-heading-row h1 { margin: 0; overflow-wrap: anywhere; min-width: 0; }
+.profile-heading-row .button { margin-left: auto; }
+.button-danger { background: #a93232; border-color: #a93232; color: #fff; }
+.button-danger:hover:not(:disabled) { background: #862727; border-color: #862727; }
+
+.catalog-search input, .catalog-search select { height: var(--catalog-control-height); }
+.catalog-search select {
+  appearance: none;
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2320312b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
 }

@@ -32,7 +32,6 @@ const draft = { title: "Initial case", vignette: "Synthetic patient has a fever.
 const answerValues = {
   "attempt-diagnosis": "Influenza",
   "attempt-alternatives": "Cold\nPneumonia",
-  "attempt-reasoning": "The fever and cough informed my answer.",
 };
 const authorValues = {
   "author-source-text": "A synthetic patient has fever and a persistent dry cough.",

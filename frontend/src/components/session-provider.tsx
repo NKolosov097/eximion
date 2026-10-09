@@ -54,11 +54,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         <input id="auth-password" name="password" type="password" autoComplete={register ? "new-password" : "current-password"} minLength={register ? 12 : 1} maxLength={128} required disabled={pending} />
         <p className="field-hint">12-128 characters. No email or password recovery: keep your password safe.</p>
         {error && <p role="alert" className="error-message">{error}</p>}
-        <div className="account-actions">
+        <div className="account-actions auth-actions">
           <button className="button" disabled={pending}>{pending ? "Please wait..." : register ? "Create account" : "Sign in"}</button>
           <button className="button button-secondary" type="button" disabled={pending} onClick={() => dialog.current?.close()}>Cancel</button>
         </div>
-        <button className="text-link" type="button" disabled={pending} onClick={() => { setRegister(!register); setError(""); }}>{register ? "Already registered? Sign in" : "Need an account? Register"}</button>
+        <button className="button button-secondary auth-mode-toggle" type="button" disabled={pending} onClick={() => { setRegister(!register); setError(""); }}>{register ? "Already registered? Sign in" : "Need an account? Register"}</button>
       </form>
     </dialog>
   </SessionContext.Provider>;

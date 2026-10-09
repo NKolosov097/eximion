@@ -236,3 +236,15 @@ Analytics latency audit found scale-from-zero startup dominates the initial dela
 
 
 Release CI passed all functional checks but exposed 19 one-level RGB differences at the desktop search input's rounded border between Azure and WSL hosts. The reviewed actual image has identical layout/text; all other thirteen images matched. The comparator now tolerates at most one RGB level per channel, while dimensions and alpha remain exact. Self-checks reject a two-level RGB change in any channel, a one-level alpha change and dimension changes. The downloaded CI artifact and a deliberately changed pixel exercise the actual comparator. Baselines were not replaced to hide this difference.
+
+
+## Accounts - deployed verification
+
+Application source 58f102f and screenshot follow-up 2fdf401 passed all eight CI jobs in run 37880935030. Backend build 3b4c0d09-af07-4d26-8fbd-ccb6cd5ce92e and frontend build 76a4ec7b-8647-4ae8-8c64-978ac5e3331e succeeded. Revisions eximion-backend-00009-8q5 and eximion-frontend-00011-jsp serve all traffic. Migration execution eximion-migrate-5x6mh succeeded; a separate guarded repair (eximion-migrate-jlghs) changed only the four known smoke titles to "Sudden fever, dry cough and fatigue", verified individually through the API.
+
+Real account verification at 2026-10-09T03:50:03.740Z passed: two-user isolation, generic invalid credentials including short passwords, HttpOnly/Secure/SameSite cookies, owned-case create/edit, key hidden from public reads, required guest consent, primary-only scoring with accepted alternatives, private history and filters, modal draft preservation without automatic submission, latest-score UI, archive/history and logout. It created two synthetic accounts and one synthetic case; that case was archived after the check. No Gemini request was made. A username/password recovery feature remains intentionally absent.
+
+## Catalog and account refinements - local verification
+
+Removed the Search button in favor of a 300ms debounce; Enter and answer-filter changes submit immediately. Browser checks verify focus/caret, continued typing, history, clearing and query preservation. Removed the ungraded reasoning input while retaining stored history. Refined modal/profile controls and Demo spacing; added two insert-only synthetic demo seeds, preserving the original home link. PostgreSQL seed preservation/idempotence and mypy passed. All 73 frontend tests, typecheck, production build, full browser harness, real local checks and sixteen reviewed Linux screenshot comparisons passed.
+

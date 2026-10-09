@@ -4,7 +4,7 @@ Visitors may register with a username and password, sign in, and sign out. Regis
 
 Signed-in creation and submissions belong to the current user. Guests may continue both flows after explicitly checking a required acknowledgement that their records are global/unowned and cannot be attached to a later account. Existing records remain unowned. Clients cannot choose or change an owner.
 
-The private profile shows total attempts, correct and incorrect attempts, total points, paginated answer history and owned cases. Repeated attempts count separately. History includes the primary diagnosis, optional alternative diagnoses and reasoning, timestamp, score and case link. Only the primary diagnosis affects the existing deterministic 0/100 grade. Up to five alternatives of 1–200 characters and optional reasoning up to 2,000 characters are accepted; NUL is forbidden.
+The private profile shows total attempts, correct and incorrect attempts, total points, paginated answer history and owned cases. Repeated attempts count separately. History includes the primary diagnosis, optional alternative diagnoses and any historical reasoning, timestamp, score and case link. The learner form no longer collects or sends reasoning; the optional backend field remains compatible. Only the primary diagnosis affects the existing deterministic 0/100 grade. Up to five alternatives of 1–200 characters and optional reasoning up to 2,000 characters are accepted; NUL is forbidden.
 
 The catalog shows a signed-in user's latest attempt score and supports All / Answered / Unanswered filtering alongside search and pagination. Other users' answers are never exposed. Guest filtered requests require sign-in.
 
