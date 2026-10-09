@@ -28,14 +28,14 @@ def test_create_read_grade_and_persist_across_connections(postgres, client):
     response = client.post("/api/v1/clinical-cases", json=VALID_CASE)
     assert response.status_code == 201, response.text
     case = response.json()
-    assert set(case) == {"id", "title", "vignette", "symptoms", "age_years", "created_at"}
+    assert set(case) == {"id", "title", "vignette", "symptoms", "age_years", "created_at", "archived", "latest_score"}
     assert response.headers["location"] == f"/api/v1/clinical-cases/{case['id']}"
     assert case["symptoms"] == ["Fever", "Cough"]
     assert case["created_at"].endswith(("Z", "+00:00"))
     engine.dispose()
     assert client.get(response.headers["location"]).json() == case
     for diagnosis, score in [(" ＦＬＵ ", 100), ("INFLUENZA", 100), ("Influenza.", 0), ("Cold", 0)]:
-        attempt = client.post(f"/api/v1/clinical-cases/{case['id']}/attempts", json={"diagnosis": diagnosis})
+        attempt = client.post(f"/api/v1/clinical-cases/{case['id']}/attempts", json={"guest_acknowledged": True, "diagnosis": diagnosis})
         assert attempt.status_code == 201, attempt.text
         assert attempt.json()["score"] == score
         assert attempt.json()["max_score"] == 100
@@ -54,7 +54,7 @@ def test_create_read_grade_and_persist_across_connections(postgres, client):
 
 def test_missing_case_and_malformed_ids(postgres, client):
     path = f"/api/v1/clinical-cases/{uuid4()}"
-    for response in [client.get(path), client.post(f"{path}/attempts", json={"diagnosis": "Flu"})]:
+    for response in [client.get(path), client.post(f"{path}/attempts", json={"guest_acknowledged": True, "diagnosis": "Flu"})]:
         assert response.status_code == 404
         assert response.json() == {"error": {"code": "case_not_found", "message": "Clinical case not found."}}
     assert client.get("/api/v1/clinical-cases/not-a-uuid").status_code == 422
@@ -227,7 +227,7 @@ def test_persisted_case_text_rejects_nul_before_sql(postgres, client, field, val
 def test_attempt_rejects_nul_without_persisting(postgres, client):
     engine, _ = postgres
     case = client.post("/api/v1/clinical-cases", json=VALID_CASE).json()
-    response = client.post(f"/api/v1/clinical-cases/{case['id']}/attempts", json={"diagnosis": "Flu\x00"})
+    response = client.post(f"/api/v1/clinical-cases/{case['id']}/attempts", json={"guest_acknowledged": True, "diagnosis": "Flu\x00"})
     assert response.status_code == 422
     with Session(engine) as session:
         assert session.scalar(select(func.count()).select_from(ClinicalCaseAttempt)) == 0
@@ -250,7 +250,7 @@ def test_catalog_order_pagination_and_hidden_answers(postgres, client, monkeypat
     assert first["has_more"] is True
     assert second["has_more"] is False
     for case in first["items"] + second["items"]:
-        assert set(case) == {"id", "title", "vignette", "symptoms", "age_years", "created_at"}
+        assert set(case) == {"id", "title", "vignette", "symptoms", "age_years", "created_at", "archived", "latest_score"}
         assert case["symptoms"] == ["Fever", "Cough"]
     assert client.get("/api/v1/clinical-cases?page=3&page_size=2").json() == {"items": [], "has_more": False}
 

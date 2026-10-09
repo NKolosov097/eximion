@@ -17,7 +17,7 @@ export class ApiError extends Error {
 }
 
 export function errorMessage(body: unknown, status: number): string {
-  if (status === 401) return messages.unauthorized;
+
   if (body && typeof body === "object") {
     if (
       "error" in body &&
@@ -42,7 +42,7 @@ export async function request<T>(
   let response: Response;
   let body: unknown;
   try {
-    response = await fetch(`${apiBaseUrl()}${path}`, {
+    response = await fetch(`/api/backend${path.replace(/^\/api\/v1/, "")}`, {
       ...options,
       signal,
       headers: { "Content-Type": "application/json", ...options.headers },
@@ -59,6 +59,7 @@ export async function request<T>(
         : messages.networkError,
     );
   }
+  if (response.status === 401 && body && typeof body === "object" && "error" in body && body.error && typeof body.error === "object" && "code" in body.error && body.error.code === "session_expired" && typeof window !== "undefined") window.dispatchEvent(new Event("session-expired"));
   if (!response.ok)
     throw new ApiError(response.status, errorMessage(body, response.status));
   if (body === null) throw new Error(messages.requestError);

@@ -10,3 +10,6 @@ export type AttemptResult = components["schemas"]["AttemptResult"];
 export type AnalyticsSummary = components["schemas"]["AnalyticsSummary"];
 
 export type ClinicalCasePage = components["schemas"]["ClinicalCasePage"];
+
+export type Account = components["schemas"]["Account"];
+export type Profile = components["schemas"]["Profile"];

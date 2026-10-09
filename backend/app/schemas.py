@@ -34,12 +34,15 @@ class ClinicalCaseDraft(RequestModel):
 class ClinicalCaseCreate(ClinicalCaseDraft):
     reference_diagnosis: ShortText
     accepted_answers: Annotated[list[ShortText], Field(max_length=20)] = Field(default_factory=list)
+    guest_acknowledged: bool = False
 
 
 class ClinicalCase(ClinicalCaseDraft):
     age_years: Annotated[int, Field(strict=True, ge=0, le=120)] | None
     id: UUID
     created_at: datetime
+    archived: bool = False
+    latest_score: Literal[0, 100] | None = None
 
 
 class ClinicalCasePage(BaseModel):
@@ -58,9 +61,70 @@ class ExtractionResponse(BaseModel):
 
 class AttemptCreate(RequestModel):
     diagnosis: ShortText
+    alternative_diagnoses: Annotated[list[ShortText], Field(max_length=5)] = Field(default_factory=list)
+    reasoning: Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000, pattern=r"^[^\x00]*$")] = ""
+    guest_acknowledged: bool = False
+
+
+class Credentials(RequestModel):
+    username: Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, min_length=3, max_length=32, pattern=r"^[a-zA-Z0-9_]+$")]
+    password: Annotated[str, StringConstraints(min_length=12, max_length=128, pattern=r"^[^\x00]*$")]
+
+
+class LoginCredentials(RequestModel):
+    username: Annotated[str, StringConstraints(strip_whitespace=True, to_lower=True, min_length=1, max_length=32, pattern=r"^[a-zA-Z0-9_]+$")]
+    password: Annotated[str, StringConstraints(min_length=1, max_length=128, pattern=r"^[^\x00]*$")]
+
+
+class Account(BaseModel):
+    id: UUID
+    username: str
+
+
+class CurrentAccount(BaseModel):
+    user: Account | None
+
+
+class AuthSession(BaseModel):
+    user: Account
+    session_token: str
+
+
+class AttemptHistory(BaseModel):
+    id: UUID
+    clinical_case_id: UUID
+    title: str
+    archived: bool
+    diagnosis: str
+    alternative_diagnoses: list[str]
+    reasoning: str
+    score: Literal[0, 100]
+    is_correct: bool
+    created_at: datetime
+
+
+class OwnedCase(BaseModel):
+    id: UUID
+    title: str
+    archived: bool
+    can_edit: bool
+
+
+class Profile(BaseModel):
+    user: Account
+    attempt_count: int
+    correct_count: int
+    incorrect_count: int
+    points: int
+    attempts: list[AttemptHistory]
+    has_more: bool
+    cases: list[OwnedCase]
+    cases_has_more: bool
 
 
 class AttemptResult(BaseModel):
+    accepted_diagnoses: list[str]
+    matched_alternative_diagnoses: list[str]
     id: UUID
     clinical_case_id: UUID
     score: Literal[0, 100]

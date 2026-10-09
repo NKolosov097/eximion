@@ -75,7 +75,7 @@ def test_real_database_parentage_and_content_redaction(postgres, observed):
         assert response.status_code == 201
         assert response.headers["x-trace-id"] == trace_id
         case_id = response.json()["id"]
-        attempt = client.post(f"/api/v1/clinical-cases/{case_id}/attempts", json={"diagnosis": secret})
+        attempt = client.post(f"/api/v1/clinical-cases/{case_id}/attempts", json={"diagnosis": secret, "guest_acknowledged": True})
         assert attempt.status_code == 201
         assert attempt.json()["score"] == 100
         missing = client.get(f"/api/v1/clinical-cases/{uuid4()}")

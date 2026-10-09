@@ -48,6 +48,7 @@ The draft fields and save form appear after successful extraction. Existing draf
 | --- | --- |
 | `case-page` | Successfully loaded server-rendered case container |
 | `case-back-home` | Link back to `/clinical-cases` (legacy selector retained) |
+| `case-demo-badge` | Visible Demo label only for canonical seeded case; same badge in its catalog card and detail heading |
 | `case-title` | Public case title heading |
 | `case-age` | Public age badge, including the unknown-age state |
 | `case-vignette` | Public vignette paragraph |
@@ -67,7 +68,12 @@ Route loading can be brief or absent when a navigation resolves immediately. Tes
 | Selector | Element / behavior |
 | --- | --- |
 | `attempt-form` | Diagnosis form; `aria-busy="true"` while submitting |
-| `attempt-diagnosis` | Diagnosis text input |
+| `attempt-diagnosis` | Primary diagnosis text input; the only graded field |
+| `attempt-alternatives` | Optional learner hypotheses, up to five lines; not graded |
+| `attempt-reasoning` | Optional learner explanation, up to 2,000 characters; not graded |
+| `attempt-answer-key` | Accepted diagnoses, revealed only after a successful attempt |
+| `attempt-alternative-result` | Repeated learner alternative, accepted match or neutral not-assessed label |
+| `attempt-notes-recap` | Learner notes repeated after a successful submission; no generated advice |
 | `attempt-submit` | Submit button; same selector while pending |
 | `attempt-error` | Submission error alert, present only after a failure |
 | `attempt-result` | Result status, present after successful submission; removed when answer changes |

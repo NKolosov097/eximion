@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SessionProvider } from "@/components/session-provider";
 import { SiteNav } from "@/components/site-nav";
 import { messages } from "@/lib/messages";
 import "./globals.css";
@@ -20,7 +21,7 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
-      <body>
+      <body><SessionProvider>
         <a href="#main" className="skip-link" data-testid="skip-to-content">
           {messages.skip}
         </a>
@@ -51,7 +52,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
           </div>
           <p>{messages.disclaimer}</p>
         </footer>
-      </body>
+      </SessionProvider></body>
     </html>
   );
 }

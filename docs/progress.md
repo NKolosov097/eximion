@@ -222,3 +222,14 @@ Validation: 80 backend tests passed against dedicated PostgreSQL test schemas; m
 Source `2eb1a04` passed all eight jobs in GitHub Actions run `37815808268`. Backend build `2f8c0465-b20f-48d4-9160-9e7b90d08511` and frontend build `4e59bc8c-2eaf-40d6-ad09-2a9ddfea335b` succeeded. Cloud Run revisions `eximion-backend-00008-njt` and `eximion-frontend-00010-k8s` each serve 100% of traffic. No migration was needed.
 
 Live read-only verification at 2026-10-08T17:25:37.914Z passed: missing/invalid author key rejected, all three periods accepted, invalid period rejected, aggregate response whitelist and percentage calculations correct, Cache-Control no-store, browser initial/loaded/error/period-change states, key cleared on reload, empty local/session storage, and no horizontal overflow at widths 320/390/768/1440. No browser errors, production writes or Gemini calls were made during this verification. The Analytics header link is live. Metrics count attempts, not unique learners.
+
+
+## Accounts, ownership and richer answers - local verification
+
+Added username/password sessions, private profile/history/points, owned-case editing before any answer and archival with preserved history. Guest creation/answers require explicit consent; in-place sign-in preserves form fields and removes the guest checkbox without submitting. Unknown usernames and incorrect passwords share the same error. Public case reads still hide the answer key; successful answers reveal accepted diagnoses, and only accepted alternative matches are highlighted. The primary diagnosis remains the sole source of the 0/100 score.
+
+Catalog search supports personal answered/unanswered filters and latest scores. Shared page widths remove horizontal shifts; the seeded case has a Demo badge. Smoke case titles now use readable text instead of timestamps. Existing cloud title repairs are pending deployment.
+
+Validation: 92 backend tests passed against PostgreSQL, including old-row migration preservation, two-user isolation and concurrent answer/edit locking. The final short-password login change passed the 12 account tests. Mypy, 65 frontend tests, TypeScript, production builds and browser flows passed. Reviewed all fourteen Linux/Chromium desktop/mobile screenshots and passed exact comparison. Auth/session/privacy review has no outstanding blocking findings. Deployment and real account-flow verification remain pending.
+
+Analytics latency audit found scale-from-zero startup dominates the initial delay (about 6.8 seconds). Warm application work was 17-21 ms, with SQL at 7-8 ms. No paid minimum-instance setting or speculative database optimization was introduced; measurements and limitations are in analytics-latency.md.

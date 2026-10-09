@@ -33,7 +33,7 @@ describe("private analytics dashboard", () => {
     fireEvent.click(screen.getByTestId("analytics-load"));
     expect(await screen.findByTestId("analytics-cards")).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringMatching(/\/api\/v1\/analytics\?days=30$/),
+      expect.stringMatching(/\/api\/backend\/analytics\?days=30$/),
       expect.objectContaining({
         cache: "no-store",
         headers: expect.objectContaining({ "X-Author-Key": "memory-only" }),

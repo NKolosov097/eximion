@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AttemptForm } from "@/components/attempt-form";
 import { apiBaseUrl } from "@/lib/api";
-import { messages } from "@/lib/messages";
+import { DEMO_CASE_ID, messages } from "@/lib/messages";
 import type { ClinicalCase } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +50,7 @@ export default async function CasePage({ params }: CasePageProps) {
         ← {messages.back}
       </Link>
       <div className="page-heading">
-        <p className="eyebrow">{messages.practiceEyebrow}</p>
+        <p className="eyebrow">{messages.practiceEyebrow} {clinicalCase.id === DEMO_CASE_ID && <span className="age-badge demo-badge" data-testid="case-demo-badge">{messages.demoBadge}</span>}</p>
         <h1 data-testid="case-title">{clinicalCase.title}</h1>
         <p className="lead">{messages.practiceDescription}</p>
       </div>
@@ -81,7 +81,7 @@ export default async function CasePage({ params }: CasePageProps) {
           </ul>
         </aside>
       </div>
-      <AttemptForm caseId={clinicalCase.id} />
+      {clinicalCase.archived ? <div className="panel"><h2>Archived case</h2><p>This case is read-only. Existing answers remain in their owners' profiles.</p></div> : <AttemptForm caseId={clinicalCase.id} />}
     </div>
   );
 }

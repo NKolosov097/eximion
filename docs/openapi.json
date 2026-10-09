@@ -5,6 +5,172 @@
     "version": "1.0.0"
   },
   "paths": {
+    "/api/v1/auth/register": {
+      "post": {
+        "summary": "Register",
+        "operationId": "register_api_v1_auth_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Credentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSession"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "Login",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginCredentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSession"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "summary": "Me",
+        "operationId": "me_api_v1_auth_me_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentAccount"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "summary": "Logout",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "summary": "Health",
@@ -163,6 +329,22 @@
               ],
               "title": "X-Author-Key"
             }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "requestBody": {
@@ -223,6 +405,21 @@
         "operationId": "list_clinical_cases_api_v1_clinical_cases_get",
         "parameters": [
           {
+            "name": "answered",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "all",
+                "answered",
+                "unanswered"
+              ],
+              "type": "string",
+              "default": "all",
+              "title": "Answered"
+            }
+          },
+          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -259,6 +456,22 @@
               "title": "Q"
             },
             "description": "Case-insensitive literal search in public titles and vignettes."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -434,6 +647,122 @@
             }
           }
         }
+      },
+      "put": {
+        "summary": "Update Owned Case",
+        "operationId": "update_owned_case_api_v1_clinical_cases__id__put",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClinicalCaseCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicalCase"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Archive Owned Case",
+        "operationId": "archive_owned_case_api_v1_clinical_cases__id__delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/clinical-cases/{id}/attempts": {
@@ -449,6 +778,22 @@
               "type": "string",
               "format": "uuid",
               "title": "Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -505,10 +850,155 @@
           }
         }
       }
+    },
+    "/api/v1/profile": {
+      "get": {
+        "summary": "Profile",
+        "operationId": "profile_api_v1_profile_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "case_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000000,
+              "minimum": 1,
+              "default": 1,
+              "title": "Case Page"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/clinical-cases/{id}/edit": {
+      "get": {
+        "summary": "Read Owned Case",
+        "operationId": "read_owned_case_api_v1_clinical_cases__id__edit_get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicalCaseCreate"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Account": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username"
+        ],
+        "title": "Account"
+      },
       "AnalyticsSummary": {
         "properties": {
           "days": {
@@ -579,6 +1069,29 @@
             "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Diagnosis"
+          },
+          "alternative_diagnoses": {
+            "items": {
+              "type": "string",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[^\\x00]*$"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Alternative Diagnoses"
+          },
+          "reasoning": {
+            "type": "string",
+            "maxLength": 2000,
+            "pattern": "^[^\\x00]*$",
+            "title": "Reasoning",
+            "default": ""
+          },
+          "guest_acknowledged": {
+            "type": "boolean",
+            "title": "Guest Acknowledged",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -588,8 +1101,90 @@
         ],
         "title": "AttemptCreate"
       },
+      "AttemptHistory": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "clinical_case_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Clinical Case Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "archived": {
+            "type": "boolean",
+            "title": "Archived"
+          },
+          "diagnosis": {
+            "type": "string",
+            "title": "Diagnosis"
+          },
+          "alternative_diagnoses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Alternative Diagnoses"
+          },
+          "reasoning": {
+            "type": "string",
+            "title": "Reasoning"
+          },
+          "score": {
+            "type": "integer",
+            "enum": [
+              0,
+              100
+            ],
+            "title": "Score"
+          },
+          "is_correct": {
+            "type": "boolean",
+            "title": "Is Correct"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "clinical_case_id",
+          "title",
+          "archived",
+          "diagnosis",
+          "alternative_diagnoses",
+          "reasoning",
+          "score",
+          "is_correct",
+          "created_at"
+        ],
+        "title": "AttemptHistory"
+      },
       "AttemptResult": {
         "properties": {
+          "accepted_diagnoses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Accepted Diagnoses"
+          },
+          "matched_alternative_diagnoses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Matched Alternative Diagnoses"
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -629,6 +1224,8 @@
         },
         "type": "object",
         "required": [
+          "accepted_diagnoses",
+          "matched_alternative_diagnoses",
           "id",
           "clinical_case_id",
           "score",
@@ -638,6 +1235,23 @@
           "created_at"
         ],
         "title": "AttemptResult"
+      },
+      "AuthSession": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "session_token": {
+            "type": "string",
+            "title": "Session Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "session_token"
+        ],
+        "title": "AuthSession"
       },
       "ClinicalCase": {
         "properties": {
@@ -689,6 +1303,26 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "archived": {
+            "type": "boolean",
+            "title": "Archived",
+            "default": false
+          },
+          "latest_score": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  0,
+                  100
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Score"
           }
         },
         "additionalProperties": false,
@@ -761,6 +1395,11 @@
             "type": "array",
             "maxItems": 20,
             "title": "Accepted Answers"
+          },
+          "guest_acknowledged": {
+            "type": "boolean",
+            "title": "Guest Acknowledged",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -845,6 +1484,50 @@
         ],
         "title": "ClinicalCasePage"
       },
+      "Credentials": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 3,
+            "pattern": "^[a-zA-Z0-9_]+$",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 12,
+            "pattern": "^[^\\x00]*$",
+            "title": "Password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "Credentials"
+      },
+      "CurrentAccount": {
+        "properties": {
+          "user": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Account"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "user"
+        ],
+        "title": "CurrentAccount"
+      },
       "ErrorDetail": {
         "properties": {
           "code": {
@@ -923,6 +1606,118 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "LoginCredentials": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9_]+$",
+            "title": "Username"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[^\\x00]*$",
+            "title": "Password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "LoginCredentials"
+      },
+      "OwnedCase": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "archived": {
+            "type": "boolean",
+            "title": "Archived"
+          },
+          "can_edit": {
+            "type": "boolean",
+            "title": "Can Edit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "archived",
+          "can_edit"
+        ],
+        "title": "OwnedCase"
+      },
+      "Profile": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/Account"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "title": "Attempt Count"
+          },
+          "correct_count": {
+            "type": "integer",
+            "title": "Correct Count"
+          },
+          "incorrect_count": {
+            "type": "integer",
+            "title": "Incorrect Count"
+          },
+          "points": {
+            "type": "integer",
+            "title": "Points"
+          },
+          "attempts": {
+            "items": {
+              "$ref": "#/components/schemas/AttemptHistory"
+            },
+            "type": "array",
+            "title": "Attempts"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/OwnedCase"
+            },
+            "type": "array",
+            "title": "Cases"
+          },
+          "cases_has_more": {
+            "type": "boolean",
+            "title": "Cases Has More"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "attempt_count",
+          "correct_count",
+          "incorrect_count",
+          "points",
+          "attempts",
+          "has_more",
+          "cases",
+          "cases_has_more"
+        ],
+        "title": "Profile"
       },
       "ValidationError": {
         "properties": {

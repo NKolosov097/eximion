@@ -11,7 +11,10 @@ import { AttemptForm } from "./attempt-form";
 import { messages } from "@/lib/messages";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }));
+vi.mock("@/components/session-provider", () => ({
+  useSession: () => ({ user: { id: "learner-id", username: "learner" }, loading: false, refresh: vi.fn(), openLogin: vi.fn() }),
+}));
 
 afterEach(() => {
   cleanup();
@@ -267,6 +270,8 @@ describe("diagnosis submission", () => {
     const fetchMock = vi.fn().mockResolvedValue(
       response(
         {
+          accepted_diagnoses: ["Influenza", "Flu"],
+          matched_alternative_diagnoses: [],
           score: 100,
           max_score: 100,
           is_correct: true,
@@ -294,6 +299,9 @@ describe("diagnosis submission", () => {
     expect(screen.getByText(messages.correct)).toBeTruthy();
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
       diagnosis: "FLU",
+      alternative_diagnoses: [],
+      reasoning: "",
+      guest_acknowledged: false,
     });
     fireEvent.change(screen.getByLabelText(messages.diagnosisLabel), {
       target: { value: "Cold" },
@@ -352,6 +360,8 @@ describe("inline field validation", () => {
   it("submits full-length emoji answers and rejects NUL without a request", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       response({
+        accepted_diagnoses: ["Influenza", "Flu"],
+        matched_alternative_diagnoses: [],
         score: 0,
         max_score: 100,
         is_correct: false,
@@ -379,7 +389,7 @@ describe("inline field validation", () => {
 });
 
 it("associates an unauthorized extraction with the author key", async () => {
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({}, 401)));
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ error: { code: "unauthorized", message: messages.unauthorized } }, 401)));
   render(<AuthorForm />);
   fireEvent.change(screen.getByTestId("author-source-text"), {
     target: { value: "A synthetic patient has fever and cough." },

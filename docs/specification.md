@@ -49,3 +49,18 @@ Verify extraction validation/failures, author editing/save, server rendering, ex
 - Show three cards: Cases created, Attempts submitted, Correct answers (%). Explain rolling UTC period and that repeated submissions count as separate attempts. Selector: Last 7/30/90 days; password field and Load analytics button. Show a dash and No attempts yet when rate is null. Initial state invites key entry.
 - Keep key only in component memory; clear displayed results when key/period changes, before requests and after failures. Disable controls while loading, show accessible pending/error states and three card skeletons respecting reduced motion. No new dependencies, migration, charts, account system or third-party analytics.
 - Verify protected/missing-key/misconfigured access, empty results, period/boundary/future records, correct percentage, older-case attempts, response whitelist and validation with real PostgreSQL. Verify UI states/navigation, responsive layout, browser flow and desktop/mobile screenshots.
+
+
+## Consistent route width
+
+Home, catalog, authoring, case detail and analytics align their outer content sections to the same main-shell content edges. Route changes must not introduce a narrower centered content area. Keep internal column proportions, readable text limits and existing responsive behavior.
+
+
+## Richer learner answers
+
+An attempt includes one required primary diagnosis (1-200 characters), optional alternative_diagnoses (up to five nonblank strings, each 1-200 characters) and optional reasoning (trimmed, 0-2000 characters). Reject NUL in every persisted field. Only the primary diagnosis affects deterministic grading; explain that alternatives and reasoning are not graded. Keep all input after failures, clear stale results after any edit, disable fields while submitting, and associate validation errors with the first invalid field. Guest users must acknowledge that their attempt has no owner and cannot be claimed later before submitting. Sign-in opens a shared modal while keeping the filled answer form mounted; success/cancel/failure preserve all inputs, and success does not auto-submit. Wait for session loading before submission, and reset guest consent when identity changes. After submission, return and show the author's accepted diagnoses (reference first, followed by aliases). Highlight only submitted alternatives that match an accepted answer, with an accessible Accepted match label. Other alternatives remain neutral: not listed in the answer key and not assessed, never medically incorrect. Optional result recap repeats the learner's own notes without generated medical advice; editing any field clears the prior result.
+
+
+## Demonstration case identification
+
+Show a visible Demo badge on the canonical seeded case in the catalog and case detail. Identify it only by the existing DEMO_CASE_ID; other cases, including cloud smoke fixtures, are not demonstration cases. Smoke-created cases use the human-readable title Sudden fever, dry cough and fatigue, while the returned UUID remains their identity. Do not add timestamps to patient-facing titles.

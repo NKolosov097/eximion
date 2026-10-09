@@ -24,7 +24,7 @@ def run(base, live):
         assert status == 200 and extracted["warnings"]
         payload = extracted["draft"]
         assert "reference_diagnosis" not in payload
-    payload.update(reference_diagnosis="Influenza", accepted_answers=["Flu"])
+    payload.update(reference_diagnosis="Influenza", accepted_answers=["Flu"], guest_acknowledged=True)
     status, case = request(base, "/api/v1/clinical-cases", payload, key)
     assert status == 201
     path = "/api/v1/clinical-cases/" + case["id"]
@@ -32,7 +32,7 @@ def run(base, live):
     assert fetched == case
     assert not {"reference_diagnosis", "accepted_answers", "source_text", "normalized_reference_diagnosis"}.intersection(fetched)
     for diagnosis, score in [("  FLU  ", 100), ("Unrelated diagnosis", 0)]:
-        status, result = request(base, path + "/attempts", {"diagnosis": diagnosis})
+        status, result = request(base, path + "/attempts", {"diagnosis": diagnosis, "guest_acknowledged": True})
         assert status == 201 and result["score"] == score and result["is_correct"] == (score == 100)
     try:
         request(base, "/api/v1/clinical-cases", payload, "invalid-key")

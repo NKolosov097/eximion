@@ -4,6 +4,74 @@
  */
 
 export interface paths {
+    "/api/v1/auth/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Register */
+        post: operations["register_api_v1_auth_register_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login */
+        post: operations["login_api_v1_auth_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_api_v1_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Logout */
+        post: operations["logout_api_v1_auth_logout_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -99,9 +167,11 @@ export interface paths {
         };
         /** Get Clinical Case */
         get: operations["get_clinical_case_api_v1_clinical_cases__id__get"];
-        put?: never;
+        /** Update Owned Case */
+        put: operations["update_owned_case_api_v1_clinical_cases__id__put"];
         post?: never;
-        delete?: never;
+        /** Archive Owned Case */
+        delete: operations["archive_owned_case_api_v1_clinical_cases__id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -124,10 +194,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Profile */
+        get: operations["profile_api_v1_profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/clinical-cases/{id}/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Owned Case */
+        get: operations["read_owned_case_api_v1_clinical_cases__id__edit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Account */
+        Account: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Username */
+            username: string;
+        };
         /** AnalyticsSummary */
         AnalyticsSummary: {
             /**
@@ -158,9 +272,60 @@ export interface components {
         AttemptCreate: {
             /** Diagnosis */
             diagnosis: string;
+            /** Alternative Diagnoses */
+            alternative_diagnoses?: string[];
+            /**
+             * Reasoning
+             * @default
+             */
+            reasoning: string;
+            /**
+             * Guest Acknowledged
+             * @default false
+             */
+            guest_acknowledged: boolean;
+        };
+        /** AttemptHistory */
+        AttemptHistory: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Clinical Case Id
+             * Format: uuid
+             */
+            clinical_case_id: string;
+            /** Title */
+            title: string;
+            /** Archived */
+            archived: boolean;
+            /** Diagnosis */
+            diagnosis: string;
+            /** Alternative Diagnoses */
+            alternative_diagnoses: string[];
+            /** Reasoning */
+            reasoning: string;
+            /**
+             * Score
+             * @enum {integer}
+             */
+            score: 0 | 100;
+            /** Is Correct */
+            is_correct: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** AttemptResult */
         AttemptResult: {
+            /** Accepted Diagnoses */
+            accepted_diagnoses: string[];
+            /** Matched Alternative Diagnoses */
+            matched_alternative_diagnoses: string[];
             /**
              * Id
              * Format: uuid
@@ -191,6 +356,12 @@ export interface components {
              */
             created_at: string;
         };
+        /** AuthSession */
+        AuthSession: {
+            user: components["schemas"]["Account"];
+            /** Session Token */
+            session_token: string;
+        };
         /** ClinicalCase */
         ClinicalCase: {
             /** Title */
@@ -211,6 +382,13 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Archived
+             * @default false
+             */
+            archived: boolean;
+            /** Latest Score */
+            latest_score?: (0 | 100) | null;
         };
         /** ClinicalCaseCreate */
         ClinicalCaseCreate: {
@@ -226,6 +404,11 @@ export interface components {
             reference_diagnosis: string;
             /** Accepted Answers */
             accepted_answers?: string[];
+            /**
+             * Guest Acknowledged
+             * @default false
+             */
+            guest_acknowledged: boolean;
         };
         /** ClinicalCaseDraft */
         ClinicalCaseDraft: {
@@ -244,6 +427,17 @@ export interface components {
             items: components["schemas"]["ClinicalCase"][];
             /** Has More */
             has_more: boolean;
+        };
+        /** Credentials */
+        Credentials: {
+            /** Username */
+            username: string;
+            /** Password */
+            password: string;
+        };
+        /** CurrentAccount */
+        CurrentAccount: {
+            user: components["schemas"]["Account"] | null;
         };
         /** ErrorDetail */
         ErrorDetail: {
@@ -272,6 +466,47 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** LoginCredentials */
+        LoginCredentials: {
+            /** Username */
+            username: string;
+            /** Password */
+            password: string;
+        };
+        /** OwnedCase */
+        OwnedCase: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Archived */
+            archived: boolean;
+            /** Can Edit */
+            can_edit: boolean;
+        };
+        /** Profile */
+        Profile: {
+            user: components["schemas"]["Account"];
+            /** Attempt Count */
+            attempt_count: number;
+            /** Correct Count */
+            correct_count: number;
+            /** Incorrect Count */
+            incorrect_count: number;
+            /** Points */
+            points: number;
+            /** Attempts */
+            attempts: components["schemas"]["AttemptHistory"][];
+            /** Has More */
+            has_more: boolean;
+            /** Cases */
+            cases: components["schemas"]["OwnedCase"][];
+            /** Cases Has More */
+            cases_has_more: boolean;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -294,6 +529,134 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    register_api_v1_auth_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Credentials"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSession"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_api_v1_auth_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginCredentials"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthSession"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    me_api_v1_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrentAccount"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    logout_api_v1_auth_logout_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     health_health_get: {
         parameters: {
             query?: never;
@@ -417,12 +780,15 @@ export interface operations {
     list_clinical_cases_api_v1_clinical_cases_get: {
         parameters: {
             query?: {
+                answered?: "all" | "answered" | "unanswered";
                 page?: number;
                 page_size?: number;
                 /** @description Case-insensitive literal search in public titles and vignettes. */
                 q?: string;
             };
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
@@ -462,6 +828,7 @@ export interface operations {
             query?: never;
             header?: {
                 "x-author-key"?: string | null;
+                authorization?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -610,10 +977,82 @@ export interface operations {
             };
         };
     };
+    update_owned_case_api_v1_clinical_cases__id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClinicalCaseCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicalCase"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_owned_case_api_v1_clinical_cases__id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_attempt_api_v1_clinical_cases__id__attempts_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                authorization?: string | null;
+            };
             path: {
                 id: string;
             };
@@ -659,6 +1098,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    profile_api_v1_profile_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                case_page?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_owned_case_api_v1_clinical_cases__id__edit_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicalCaseCreate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

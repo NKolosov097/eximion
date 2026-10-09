@@ -26,13 +26,29 @@ const listen = async (server) => {
   let caseFetches = 0;
   let healthy = false;
   let catalogEmpty = false;
+  let latestAccountScore = 100;
   let holdCatalog = false;
   let releaseCatalog;
   const catalogRequests = [];
+  const account = { id: "11111111-1111-4111-8111-111111111111", username: "browser_learner" };
   const api = http.createServer(async (req, res) => {
     requests++;
     const requestPath = new URL(req.url, "http://localhost").pathname;
     const searchParams = new URL(req.url, "http://localhost").searchParams;
+    if (requestPath.endsWith("/attempts") && req.method === "POST") {
+      latestAccountScore = 0;
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ score: 0, max_score: 100, is_correct: false, feedback: "Incorrect synthetic answer.", accepted_diagnoses: ["Influenza", "Flu"], matched_alternative_diagnoses: [] })); return;
+    }
+    if (requestPath.startsWith("/api/v1/auth/") || requestPath === "/api/v1/profile") {
+      const authenticated = req.headers.authorization === "Bearer browser-private-session";
+      const result = requestPath.endsWith("/login") || requestPath.endsWith("/register")
+        ? { user: account, session_token: "browser-private-session" }
+        : requestPath.endsWith("/logout") ? { signed_out: true }
+        : requestPath === "/api/v1/profile" ? { user: account, attempt_count: 2, correct_count: 1, incorrect_count: 1, points: 100, attempts: [{ id: "attempt", clinical_case_id: id, title: draft.title, archived: false, diagnosis: "Influenza", alternative_diagnoses: ["Cold"], reasoning: "Synthetic explanation", score: 100, is_correct: true, created_at: "2026-10-08T12:00:00Z" }], has_more: false, cases: [], cases_has_more: false }
+        : { user: authenticated ? account : null };
+      res.writeHead(200, { "Content-Type": "application/json" }); res.end(JSON.stringify(result)); return;
+    }
     if (requestPath === `/api/v1/clinical-cases/${id}`) caseFetches++;
     if (requestPath === "/api/v1/clinical-cases") {
       catalogRequests.push({ page: searchParams.get("page"), q: searchParams.get("q") });
@@ -43,9 +59,9 @@ const listen = async (server) => {
     res.end(
       JSON.stringify(
         healthy
-          ? (requestPath === "/api/v1/clinical-cases"
+          ? (requestPath === "/api/v1/auth/me" ? { user: null } : requestPath === "/api/v1/clinical-cases"
             ? {
-                items: catalogEmpty || searchParams.get("q") === "no-such-case" ? [] : [clinicalCase],
+                items: catalogEmpty || searchParams.get("q") === "no-such-case" ? [] : [{ ...clinicalCase, latest_score: req.headers.authorization ? latestAccountScore : null }],
                 has_more: !catalogEmpty && searchParams.get("q") !== "no-such-case" && searchParams.get("page") === "1",
               }
             : clinicalCase)
@@ -104,13 +120,13 @@ const listen = async (server) => {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(`${origin}/clinical-cases/${id}`);
-    await page.getByTestId("case-load-retry").waitFor();
+    await page.getByTestId("case-load-retry").filter({ visible: true }).waitFor();
     const failedRequests = requests;
     const failedCaseFetches = caseFetches;
     assert(failedRequests > 0);
     healthy = true;
-    await page.getByTestId("case-load-retry").click();
-    await page.getByTestId("case-title").waitFor();
+    await page.getByTestId("case-load-retry").filter({ visible: true }).click();
+    await page.getByTestId("case-title").filter({ visible: true }).filter({ visible: true }).waitFor();
     const iconHref = await page.locator('link[rel="icon"]').getAttribute("href");
     assert(iconHref, "Every page must link to its favicon");
     const icon = await page.request.get(new URL(iconHref, origin).href);
@@ -122,17 +138,47 @@ const listen = async (server) => {
     );
     assert.equal(caseFetches - failedCaseFetches, 1, "Case content and metadata share one API response.");
     assert.equal(
-      await page.getByTestId("case-title").textContent(),
+      await page.getByTestId("case-title").filter({ visible: true }).filter({ visible: true }).textContent(),
       draft.title,
     );
     assert.equal(await page.title(), `${draft.title} · Clinical Cases`);
-    assert.equal(await page.getByTestId("nav-all-cases").getAttribute("aria-current"), "page");
+    assert.equal(await page.getByTestId("nav-all-cases").filter({ visible: true }).getAttribute("aria-current"), "page");
     // The deliberately failed Server Component reports an expected production error.
     errors.length = 0;
-    await page.getByTestId("nav-home-link").click();
+    for (const width of [320, 390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const [route, section] of [
+        ["/", ".hero"],
+        ["/clinical-cases", '[data-testid="case-catalog"]'],
+        ["/clinical-cases/new", ".page-heading"],
+        [`/clinical-cases/${id}`, '[data-testid="case-page"]'],
+        ["/analytics", ".page-heading"],
+      ]) {
+        await page.goto(`${origin}${route}`);
+        await page.locator(section).waitFor();
+        const bounds = await page.locator(section).evaluate((element) => {
+          const main = document.querySelector(".main-shell");
+          const shell = main.getBoundingClientRect();
+          const padding = getComputedStyle(main);
+          const content = element.getBoundingClientRect();
+          return {
+            left: content.left,
+            right: content.right,
+            expectedLeft: shell.left + parseFloat(padding.paddingLeft),
+            expectedRight: shell.right - parseFloat(padding.paddingRight),
+            overflow: document.documentElement.scrollWidth > innerWidth,
+          };
+        });
+        assert(Math.abs(bounds.left - bounds.expectedLeft) < 1, `${route} left edge at ${width}px`);
+        assert(Math.abs(bounds.right - bounds.expectedRight) < 1, `${route} right edge at ${width}px`);
+        assert.equal(bounds.overflow, false, `${route} overflow at ${width}px`);
+      }
+    }
+
+    await page.getByTestId("nav-home-link").filter({ visible: true }).click();
     await page.waitForURL(`${origin}/`);
-    assert.equal(await page.getByTestId("nav-home-link").getAttribute("aria-current"), "page");
-    const docs = page.getByTestId("nav-docs");
+    assert.equal(await page.getByTestId("nav-home-link").filter({ visible: true }).getAttribute("aria-current"), "page");
+    const docs = page.getByTestId("nav-docs").filter({ visible: true });
     const docsUrl = await docs.getAttribute("href");
     assert.equal(typeof docsUrl, "string");
     assert.equal(new URL(docsUrl).pathname, "/docs");
@@ -151,10 +197,10 @@ const listen = async (server) => {
     assert.equal(page.url(), `${origin}/`, "Docs leaves the application tab intact.");
     await popup.close();
     await page.context().unroute(docsUrl);
-    assert.equal(await page.getByTestId("footer-github").getAttribute("href"), "https://github.com/NKolosov097");
-    await page.getByTestId("nav-all-cases").click();
-    await page.getByTestId("case-catalog").waitFor();
-    assert.equal(await page.getByTestId("nav-all-cases").getAttribute("aria-current"), "page");
+    assert.equal(await page.getByTestId("footer-github").filter({ visible: true }).getAttribute("href"), "https://github.com/NKolosov097");
+    await page.getByTestId("nav-all-cases").filter({ visible: true }).click();
+    await page.getByTestId("case-catalog").filter({ visible: true }).waitFor();
+    assert.equal(await page.getByTestId("nav-all-cases").filter({ visible: true }).getAttribute("aria-current"), "page");
     await page.getByRole("link", { name: "Next page", exact: true }).click();
     await page.waitForURL((url) => url.searchParams.get("page") === "2");
     await page.getByRole("searchbox", { name: "Search titles and descriptions" }).fill("dry cough");
@@ -172,18 +218,18 @@ const listen = async (server) => {
     await page.waitForURL((url) => url.searchParams.get("page") === "1" && url.searchParams.get("q") === "dry cough");
     await page.getByRole("searchbox", { name: "Search titles and descriptions" }).fill("no-such-case");
     await page.getByRole("button", { name: "Search", exact: true }).click();
-    await page.getByTestId("catalog-search-empty").waitFor();
+    await page.getByTestId("catalog-search-empty").filter({ visible: true }).waitFor();
     await page.getByRole("link", { name: "Clear search", exact: true }).click();
     await page.waitForURL((url) => url.pathname === "/clinical-cases" && !url.searchParams.has("q"));
-    await page.getByTestId("catalog-case").waitFor();
-    await page.getByTestId("nav-create-case").click();
-    await page.getByTestId("author-source-text").waitFor();
-    assert.equal(await page.getByTestId("nav-create-case").getAttribute("aria-current"), "page");
-    await page.getByTestId("nav-home").click();
+    await page.getByTestId("catalog-case").filter({ visible: true }).waitFor();
+    await page.getByTestId("nav-create-case").filter({ visible: true }).click();
+    await page.getByTestId("author-source-text").filter({ visible: true }).waitFor();
+    assert.equal(await page.getByTestId("nav-create-case").filter({ visible: true }).getAttribute("aria-current"), "page");
+    await page.getByTestId("nav-home").filter({ visible: true }).click();
     await page.waitForURL(`${origin}/`);
-    await page.getByTestId("nav-all-cases").click();
+    await page.getByTestId("nav-all-cases").filter({ visible: true }).click();
     await page.getByRole("link", { name: draft.title, exact: true }).click();
-    await page.getByTestId("case-title").waitFor();
+    await page.getByTestId("case-title").filter({ visible: true }).filter({ visible: true }).waitFor();
 
     const browserRequests = [];
     let attemptUnavailable = false;
@@ -193,7 +239,7 @@ const listen = async (server) => {
     let signalAnalyticsRouteEntered;
     let holdExtraction = false;
     let releaseExtraction;
-    await page.route("**/api/v1/**", async (route) => {
+    await page.route("**/api/backend/**", async (route) => {
       const request = route.request();
       browserRequests.push({
         path: new URL(request.url()).pathname,
@@ -201,9 +247,9 @@ const listen = async (server) => {
         headers: request.headers(),
         body: request.method() === "POST" ? request.postDataJSON() : undefined,
       });
-      let body = clinicalCase;
+      let body = request.url().endsWith("/auth/me") ? { user: null } : clinicalCase;
       let status = 200;
-      if (request.url().includes("/api/v1/analytics")) {
+      if (request.url().includes("/api/backend/analytics")) {
         if (holdAnalytics) {
           signalAnalyticsRouteEntered?.();
           await new Promise((resolve) => { releaseAnalytics = resolve; });
@@ -225,7 +271,7 @@ const listen = async (server) => {
         body = attemptUnavailable
           ? { error: { message: "Synthetic service unavailable." } }
           : { score: correct ? 100 : 0, max_score: 100, is_correct: correct,
-              feedback: correct ? "Accepted synthetic answer." : "Incorrect synthetic answer." };
+              accepted_diagnoses: ["Influenza", "Flu"], matched_alternative_diagnoses: [], feedback: correct ? "Accepted synthetic answer." : "Incorrect synthetic answer." };
       }
       await route.fulfill({
         status: isAttempt && attemptUnavailable ? 503 : status,
@@ -233,72 +279,73 @@ const listen = async (server) => {
         body: JSON.stringify(body),
       });
     });
-    await page.getByTestId("nav-analytics").click();
-    await page.getByTestId("analytics-initial").waitFor();
-    assert.equal(await page.getByTestId("nav-analytics").getAttribute("aria-current"), "page");
-    assert.equal(await page.getByTestId("analytics-cards").count(), 0, "The public analytics page starts without metrics.");
-    assert.equal(await page.getByTestId("analytics-key").getAttribute("type"), "password");
-    await page.getByTestId("analytics-key").fill("browser-only-author-key");
+    await page.getByTestId("nav-analytics").filter({ visible: true }).click();
+    await page.getByTestId("analytics-initial").filter({ visible: true }).waitFor();
+    assert.equal(await page.getByTestId("nav-analytics").filter({ visible: true }).getAttribute("aria-current"), "page");
+    assert.equal(await page.getByTestId("analytics-cards").filter({ visible: true }).count(), 0, "The public analytics page starts without metrics.");
+    assert.equal(await page.getByTestId("analytics-key").filter({ visible: true }).getAttribute("type"), "password");
+    await page.getByTestId("analytics-key").filter({ visible: true }).fill("browser-only-author-key");
     const analyticsRouteEntered = new Promise((resolve) => { signalAnalyticsRouteEntered = resolve; });
     holdAnalytics = true;
-    await page.getByTestId("analytics-load").click();
-    await page.getByTestId("analytics-skeletons").waitFor();
+    await page.getByTestId("analytics-load").filter({ visible: true }).click();
+    await page.getByTestId("analytics-skeletons").filter({ visible: true }).waitFor();
     await analyticsRouteEntered;
-    assert.equal(await page.getByTestId("analytics-skeletons").locator(".analytics-card").count(), 3);
-    assert.equal(await page.getByTestId("analytics-key").isDisabled(), true);
+    assert.equal(await page.getByTestId("analytics-skeletons").filter({ visible: true }).locator(".analytics-card").count(), 3);
+    assert.equal(await page.getByTestId("analytics-key").filter({ visible: true }).isDisabled(), true);
     await page.emulateMedia({ reducedMotion: "reduce" });
     assert.equal(await page.locator(".analytics-value-skeleton").first().evaluate((el) => getComputedStyle(el).animationName), "none");
     holdAnalytics = false;
     releaseAnalytics?.();
-    await page.getByTestId("analytics-cards").waitFor();
-    const analyticsRequest = browserRequests.find((item) => item.path === "/api/v1/analytics");
+    await page.getByTestId("analytics-cards").filter({ visible: true }).waitFor();
+    const analyticsRequest = browserRequests.find((item) => item.path === "/api/backend/analytics");
     assert(analyticsRequest);
     assert.equal(new URL(analyticsRequest.url).searchParams.get("days"), "30");
     assert.equal(analyticsRequest.headers["x-author-key"], "browser-only-author-key");
     assert.equal(new URL(page.url()).pathname, "/analytics", "The key never appears in the URL.");
     assert.equal(await page.evaluate(() => localStorage.length), 0, "The key is not persisted in local storage.");
-    assert.equal(await page.getByTestId("analytics-period-note").textContent().then((text) => text.includes("Repeated submissions count as separate attempts.")), true);
-    await page.getByTestId("analytics-days").selectOption("7");
-    await page.getByTestId("analytics-initial").waitFor();
-    assert.equal(await page.getByTestId("analytics-cards").count(), 0, "Changing period clears previously loaded metrics.");
+    assert.equal(await page.getByTestId("analytics-period-note").filter({ visible: true }).textContent().then((text) => text.includes("Repeated submissions count as separate attempts.")), true);
+    await page.getByTestId("analytics-days").filter({ visible: true }).selectOption("7");
+    await page.getByTestId("analytics-initial").filter({ visible: true }).waitFor();
+    assert.equal(await page.getByTestId("analytics-cards").filter({ visible: true }).count(), 0, "Changing period clears previously loaded metrics.");
     analyticsUnavailable = true;
-    await page.getByTestId("analytics-load").click();
-    await page.getByTestId("analytics-error").waitFor();
-    assert.equal(await page.getByTestId("analytics-cards").count(), 0, "Failures leave no stale results visible.");
+    await page.getByTestId("analytics-load").filter({ visible: true }).click();
+    await page.getByTestId("analytics-error").filter({ visible: true }).waitFor();
+    assert.equal(await page.getByTestId("analytics-cards").filter({ visible: true }).count(), 0, "Failures leave no stale results visible.");
     analyticsUnavailable = false;
-    await page.getByTestId("analytics-load").click();
-    await page.getByTestId("analytics-cards").waitFor();
+    await page.getByTestId("analytics-load").filter({ visible: true }).click();
+    await page.getByTestId("analytics-cards").filter({ visible: true }).waitFor();
     await page.goto(`${origin}/clinical-cases/${id}`);
-    await page.getByTestId("case-title").waitFor();
-    await page.getByTestId("attempt-diagnosis").fill("   ");
-    await page.getByTestId("attempt-submit").click();
-    await page.getByTestId("attempt-error").waitFor();
+    await page.getByTestId("case-title").filter({ visible: true }).filter({ visible: true }).waitFor();
+    await page.getByRole("checkbox", { name: "I understand and want to submit as a guest." }).check();
+    await page.getByTestId("attempt-diagnosis").filter({ visible: true }).fill("   ");
+    await page.getByTestId("attempt-submit").filter({ visible: true }).click();
+    await page.getByTestId("attempt-error").filter({ visible: true }).waitFor();
     assert.equal(browserRequests.filter((item) => item.path.endsWith("/attempts")).length, 0, "Invalid answers never reach the API.");
-    assert.equal(await page.getByTestId("attempt-diagnosis").getAttribute("aria-invalid"), "true");
+    assert.equal(await page.getByTestId("attempt-diagnosis").filter({ visible: true }).getAttribute("aria-invalid"), "true");
     for (const [answer, title, score] of [
       ["  FLU  ", "Accepted diagnosis", "100 / 100"],
       ["Unrelated diagnosis", "Keep thinking", "0 / 100"],
     ]) {
-      await page.getByTestId("attempt-diagnosis").fill(answer);
-      assert.equal(await page.getByTestId("attempt-result").count(), 0, "Editing clears stale feedback.");
-      await page.getByTestId("attempt-submit").click();
-      await page.getByTestId("attempt-result").waitFor();
-      assert.equal(await page.getByTestId("attempt-result-title").textContent(), title);
-      assert.equal(await page.getByTestId("attempt-score").textContent(), score);
+      await page.getByTestId("attempt-diagnosis").filter({ visible: true }).fill(answer);
+      assert.equal(await page.getByTestId("attempt-result").filter({ visible: true }).count(), 0, "Editing clears stale feedback.");
+      await page.getByTestId("attempt-submit").filter({ visible: true }).click();
+      await page.getByTestId("attempt-result").filter({ visible: true }).waitFor();
+      assert.equal(await page.getByTestId("attempt-result-title").filter({ visible: true }).textContent(), title);
+      assert.equal(await page.getByTestId("attempt-score").filter({ visible: true }).textContent(), score);
       assert.equal(browserRequests.at(-1).body.diagnosis, answer);
     }
     attemptUnavailable = true;
-    await page.getByTestId("attempt-diagnosis").fill("Influenza");
-    await page.getByTestId("attempt-submit").click();
-    await page.getByTestId("attempt-error").waitFor();
-    assert.equal(await page.getByTestId("attempt-error").textContent(), "Synthetic service unavailable.");
-    assert.equal(await page.getByTestId("attempt-diagnosis").inputValue(), "Influenza");
-    assert(await page.getByTestId("attempt-submit").isEnabled());
+    await page.getByTestId("attempt-diagnosis").filter({ visible: true }).fill("Influenza");
+    await page.getByTestId("attempt-submit").filter({ visible: true }).click();
+    await page.getByTestId("attempt-error").filter({ visible: true }).waitFor();
+    assert.equal(await page.getByTestId("attempt-error").filter({ visible: true }).textContent(), "Synthetic service unavailable.");
+    assert.equal(await page.getByTestId("attempt-diagnosis").filter({ visible: true }).inputValue(), "Influenza");
+    assert(await page.getByTestId("attempt-submit").filter({ visible: true }).isEnabled());
     attemptUnavailable = false;
     const emoji = String.fromCodePoint(0x1f600);
-    await page.getByTestId("attempt-diagnosis").fill(` ${emoji.repeat(200)} `);
-    await page.getByTestId("attempt-diagnosis").press("Enter");
-    await page.getByTestId("attempt-result").waitFor();
+    await page.getByTestId("attempt-diagnosis").filter({ visible: true }).fill(` ${emoji.repeat(200)} `);
+    await page.getByTestId("attempt-diagnosis").filter({ visible: true }).press("Enter");
+    await page.getByTestId("attempt-result").filter({ visible: true }).waitFor();
     assert.equal([...browserRequests.at(-1).body.diagnosis.trim()].length, 200);
     await page.goto(`${origin}/clinical-cases/new`);
     await page.keyboard.press("Tab");
@@ -310,33 +357,33 @@ const listen = async (server) => {
     );
     await page.keyboard.press("Enter");
     assert.equal(await page.evaluate(() => document.activeElement?.id), "main");
-    await page.getByTestId("author-key").fill("memory-only-key");
-    await page.getByTestId("nav-all-cases").click();
-    await page.getByTestId("case-catalog").waitFor();
-    await page.getByTestId("nav-create-case").click();
-    await page.getByTestId("author-source-text").waitFor();
-    await page.getByTestId("author-source-text").fill("A synthetic patient has fever and cough.");
+    await page.getByTestId("author-key").filter({ visible: true }).fill("memory-only-key");
+    await page.getByTestId("nav-all-cases").filter({ visible: true }).click();
+    await page.getByTestId("case-catalog").filter({ visible: true }).waitFor();
+    await page.getByTestId("nav-create-case").filter({ visible: true }).click();
+    await page.getByTestId("author-source-text").filter({ visible: true }).waitFor();
+    await page.getByTestId("author-source-text").filter({ visible: true }).fill("A synthetic patient has fever and cough.");
     let leaveDialogMessage = "";
     page.once("dialog", async (dialog) => {
       leaveDialogMessage = dialog.message();
       await dialog.dismiss();
     });
-    await page.getByTestId("nav-all-cases").click();
+    await page.getByTestId("nav-all-cases").filter({ visible: true }).click();
     assert.equal(leaveDialogMessage, "This case draft has not been saved. Leave this page and discard your changes?");
     assert.equal(new URL(page.url()).pathname, "/clinical-cases/new", "Cancel keeps the author form open.");
-    assert.equal(await page.getByTestId("author-source-text").inputValue(), "A synthetic patient has fever and cough.");
-    const dirtyDocsUrl = await page.getByTestId("nav-docs").getAttribute("href");
+    assert.equal(await page.getByTestId("author-source-text").filter({ visible: true }).inputValue(), "A synthetic patient has fever and cough.");
+    const dirtyDocsUrl = await page.getByTestId("nav-docs").filter({ visible: true }).getAttribute("href");
     await page.context().route(dirtyDocsUrl, (route) => route.fulfill({
       contentType: "text/html", body: "<title>Test API docs</title><h1>API docs</h1>",
     }));
     const dirtyDocsPopup = page.waitForEvent("popup");
-    await page.getByTestId("nav-docs").click();
+    await page.getByTestId("nav-docs").filter({ visible: true }).click();
     const docsPopup = await dirtyDocsPopup;
     await docsPopup.waitForLoadState();
     await docsPopup.close();
     await page.context().unroute(dirtyDocsUrl);
-    await page.getByTestId("skip-to-content").focus();
-    await page.getByTestId("skip-to-content").click();
+    await page.getByTestId("skip-to-content").filter({ visible: true }).focus();
+    await page.getByTestId("skip-to-content").filter({ visible: true }).click();
     assert.equal(new URL(page.url()).hash, "#main", "Same-page anchors do not warn.");
     const hashBack = page.waitForFunction(() => location.hash === "");
     await page.evaluate(() => history.back());
@@ -347,7 +394,7 @@ const listen = async (server) => {
     });
     await page.evaluate(() => { setTimeout(() => location.reload(), 0); });
     assert.equal(await reloadPrompt, "beforeunload");
-    assert.equal(await page.getByTestId("author-source-text").inputValue(), "A synthetic patient has fever and cough.");
+    assert.equal(await page.getByTestId("author-source-text").filter({ visible: true }).inputValue(), "A synthetic patient has fever and cough.");
     if (await page.evaluate(() => "navigation" in window)) {
       const backPrompt = page.waitForEvent("dialog", { timeout: 10000 }).then(async (dialog) => {
         await dialog.dismiss();
@@ -358,64 +405,65 @@ const listen = async (server) => {
       assert.equal(new URL(page.url()).pathname, "/clinical-cases/new", "Canceling browser Back keeps the form open.");
     }
     page.once("dialog", async (dialog) => dialog.accept());
-    await page.getByTestId("nav-all-cases").click();
-    await page.getByTestId("case-catalog").waitFor();
+    await page.getByTestId("nav-all-cases").filter({ visible: true }).click();
+    await page.getByTestId("case-catalog").filter({ visible: true }).waitFor();
     assert.equal(new URL(page.url()).pathname, "/clinical-cases", "Accepting a leave prompt follows the link.");
-    await page.getByTestId("nav-create-case").click();
-    await page.getByTestId("author-source-text").waitFor();
-    await page.getByTestId("author-key").fill("memory-only-key");
-    await page.getByTestId("author-source-text").fill(" ".repeat(20) + "short");
-    await page.getByTestId("author-extract-submit").click();
+    await page.getByTestId("nav-create-case").filter({ visible: true }).click();
+    await page.getByTestId("author-source-text").filter({ visible: true }).waitFor();
+    await page.getByTestId("author-key").filter({ visible: true }).fill("memory-only-key");
+    await page.getByTestId("author-source-text").filter({ visible: true }).fill(" ".repeat(20) + "short");
+    await page.getByTestId("author-extract-submit").filter({ visible: true }).click();
     assert.equal(
-      await page.getByTestId("author-source-text").getAttribute("aria-invalid"),
+      await page.getByTestId("author-source-text").filter({ visible: true }).getAttribute("aria-invalid"),
       "true",
     );
     assert.equal(
       await page.evaluate(() => document.activeElement?.id),
       "source-text",
     );
-    await page.getByTestId("author-source-text").fill(emoji.repeat(20000));
-    await page.getByTestId("author-extract-submit").click();
-    await page.getByTestId("author-draft-title").waitFor();
-    assert.equal(await page.getByTestId("author-review-confirmation").evaluate((el) => getComputedStyle(el).cursor), "pointer");
-    assert.equal(await page.getByTestId("author-review-confirmation").locator("xpath=..").evaluate((el) => getComputedStyle(el).cursor), "pointer");
+    await page.getByTestId("author-source-text").filter({ visible: true }).fill(emoji.repeat(20000));
+    await page.getByTestId("author-extract-submit").filter({ visible: true }).click();
+    await page.getByTestId("author-draft-title").filter({ visible: true }).waitFor();
+    assert.equal(await page.getByTestId("author-review-confirmation").filter({ visible: true }).evaluate((el) => getComputedStyle(el).cursor), "pointer");
+    assert.equal(await page.getByTestId("author-review-confirmation").filter({ visible: true }).locator("xpath=..").evaluate((el) => getComputedStyle(el).cursor), "pointer");
     assert.equal([...browserRequests.at(-1).body.source_text].length, 20000);
-    assert.equal(await page.getByTestId("author-reference-diagnosis").inputValue(), "");
-    await page.getByTestId("author-reference-diagnosis").fill("Influenza");
-    await page.getByTestId("author-accepted-alternatives").fill("Flu");
-    await page.getByTestId("author-draft-title").fill("Manual title");
+    assert.equal(await page.getByTestId("author-reference-diagnosis").filter({ visible: true }).inputValue(), "");
+    await page.getByTestId("author-reference-diagnosis").filter({ visible: true }).fill("Influenza");
+    await page.getByTestId("author-accepted-alternatives").filter({ visible: true }).fill("Flu");
+    await page.getByTestId("author-draft-title").filter({ visible: true }).fill("Manual title");
     const beforeCancelledExtraction = browserRequests.length;
     page.once("dialog", (dialog) => dialog.dismiss());
-    await page.getByTestId("author-extract-submit").click();
+    await page.getByTestId("author-extract-submit").filter({ visible: true }).click();
     assert.equal(browserRequests.length, beforeCancelledExtraction, "Canceling re-extraction sends no request.");
-    assert.equal(await page.getByTestId("author-draft-title").inputValue(), "Manual title");
+    assert.equal(await page.getByTestId("author-draft-title").filter({ visible: true }).inputValue(), "Manual title");
     holdExtraction = true;
     await page.emulateMedia({ reducedMotion: "no-preference" });
     page.once("dialog", (dialog) => dialog.accept());
-    await page.getByTestId("author-extract-submit").click();
-    const extractButton = page.getByTestId("author-extract-submit");
+    await page.getByTestId("author-extract-submit").filter({ visible: true }).click();
+    const extractButton = page.getByTestId("author-extract-submit").filter({ visible: true });
     await page.waitForFunction(() => document.querySelector('[data-testid="author-extract-submit"]')?.getAttribute("aria-busy") === "true");
     assert(await extractButton.isDisabled(), "Extraction disables its inputs while pending.");
     assert.equal(await page.locator(".source-panel button[aria-busy='true'] span").evaluate((el) => getComputedStyle(el).animationName), "extract-spin");
     await page.emulateMedia({ reducedMotion: "reduce" });
     assert.equal(await page.locator(".source-panel button[aria-busy='true'] span").evaluate((el) => getComputedStyle(el).animationName), "none");
     assert.equal(await page.getByRole("status").last().textContent(), "Extracting draft…");
-    assert.equal(await page.getByTestId("author-review-confirmation").isDisabled(), true);
-    assert.equal(await page.getByTestId("author-review-confirmation").evaluate((el) => getComputedStyle(el).cursor), "not-allowed");
+    assert.equal(await page.getByTestId("author-review-confirmation").filter({ visible: true }).isDisabled(), true);
+    assert.equal(await page.getByTestId("author-review-confirmation").filter({ visible: true }).evaluate((el) => getComputedStyle(el).cursor), "not-allowed");
     holdExtraction = false;
     releaseExtraction?.();
-    await page.getByTestId("author-answers-review-hint").waitFor();
-    assert.equal(await page.getByTestId("author-draft-title").inputValue(), draft.title);
-    assert.equal(await page.getByTestId("author-reference-diagnosis").inputValue(), "Influenza");
-    assert.equal(await page.getByTestId("author-accepted-alternatives").inputValue(), "Flu");
-    assert.equal(await page.getByTestId("author-review-confirmation").isChecked(), false);
-    await page.getByTestId("author-reference-diagnosis").fill("Influenza");
+    await page.getByTestId("author-answers-review-hint").filter({ visible: true }).waitFor();
+    assert.equal(await page.getByTestId("author-draft-title").filter({ visible: true }).inputValue(), draft.title);
+    assert.equal(await page.getByTestId("author-reference-diagnosis").filter({ visible: true }).inputValue(), "Influenza");
+    assert.equal(await page.getByTestId("author-accepted-alternatives").filter({ visible: true }).inputValue(), "Flu");
+    assert.equal(await page.getByTestId("author-review-confirmation").filter({ visible: true }).isChecked(), false);
+    await page.getByTestId("author-reference-diagnosis").filter({ visible: true }).fill("Influenza");
     const beforeUnreviewedSave = browserRequests.length;
-    assert(await page.getByTestId("author-save-submit").isDisabled(), "Saving requires explicit review.");
+    assert(await page.getByTestId("author-save-submit").filter({ visible: true }).isDisabled(), "Saving requires explicit review.");
     assert.equal(browserRequests.length, beforeUnreviewedSave);
-    await page.getByTestId("author-review-confirmation").check();
-    await page.getByTestId("author-draft-title").fill("Edited synthetic case");
-    assert.equal(await page.getByTestId("author-review-confirmation").isChecked(), false);
+    await page.getByRole("checkbox", { name: "I understand and want to submit as a guest." }).check();
+    await page.getByTestId("author-review-confirmation").filter({ visible: true }).check();
+    await page.getByTestId("author-draft-title").filter({ visible: true }).fill("Edited synthetic case");
+    assert.equal(await page.getByTestId("author-review-confirmation").filter({ visible: true }).isChecked(), false);
     for (const [selector, count] of [
       ["author-draft-title", 120],
       ["author-draft-vignette", 8000],
@@ -423,17 +471,18 @@ const listen = async (server) => {
       ["author-draft-symptoms", 200],
       ["author-accepted-alternatives", 200],
     ]) {
-      await page.getByTestId(selector).fill(` ${emoji.repeat(count)} `);
+      await page.getByTestId(selector).filter({ visible: true }).fill(` ${emoji.repeat(count)} `);
       assert.equal(
-        await page.getByTestId(selector).getAttribute("maxlength"),
+        await page.getByTestId(selector).filter({ visible: true }).getAttribute("maxlength"),
         null,
       );
     }
-    await page.getByTestId("author-draft-title").fill(emoji.repeat(121));
-    await page.getByTestId("author-review-confirmation").check();
-    await page.getByTestId("author-save-submit").click();
+    await page.getByTestId("author-draft-title").filter({ visible: true }).fill(emoji.repeat(121));
+    await page.getByRole("checkbox", { name: "I understand and want to submit as a guest." }).check();
+    await page.getByTestId("author-review-confirmation").filter({ visible: true }).check();
+    await page.getByTestId("author-save-submit").filter({ visible: true }).click();
     assert.equal(
-      await page.getByTestId("author-draft-title").getAttribute("aria-invalid"),
+      await page.getByTestId("author-draft-title").filter({ visible: true }).getAttribute("aria-invalid"),
       "true",
     );
     assert.equal(
@@ -446,8 +495,9 @@ const listen = async (server) => {
         .getAttribute("aria-describedby"),
       "save-error",
     );
-    await page.getByTestId("author-draft-title").fill(emoji.repeat(120));
-    await page.getByTestId("author-review-confirmation").check();
+    await page.getByTestId("author-draft-title").filter({ visible: true }).fill(emoji.repeat(120));
+    await page.getByRole("checkbox", { name: "I understand and want to submit as a guest." }).check();
+    await page.getByTestId("author-review-confirmation").filter({ visible: true }).check();
     for (const width of [320, 390, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       assert.equal(
@@ -464,38 +514,38 @@ const listen = async (server) => {
         .evaluate((el) => getComputedStyle(el).transitionDuration),
       "0s",
     );
-    await page.getByTestId("author-save-submit").click();
+    await page.getByTestId("author-save-submit").filter({ visible: true }).click();
     await page.waitForURL(`${origin}/clinical-cases/${id}`);
-    await page.getByTestId("case-title").waitFor();
+    await page.getByTestId("case-title").filter({ visible: true }).filter({ visible: true }).waitFor();
     const saved = browserRequests.find(
-      (request) => request.path === "/api/v1/clinical-cases",
+      (request) => request.path === "/api/backend/clinical-cases",
     ).body;
     assert.equal([...saved.title].length, 120);
     assert.equal([...saved.vignette.trim()].length, 8000);
     assert.equal([...saved.reference_diagnosis.trim()].length, 200);
     assert.equal([...saved.symptoms[0]].length, 200);
     assert.equal([...saved.accepted_answers[0]].length, 200);
-    await page.unroute("**/api/v1/**");
-    await page.getByTestId("case-back-home").click();
-    await page.getByTestId("case-catalog").waitFor();
+    await page.unroute("**/api/backend/**");
+    await page.getByTestId("case-back-home").filter({ visible: true }).click();
+    await page.getByTestId("case-catalog").filter({ visible: true }).waitFor();
     assert.equal(new URL(page.url()).pathname, "/clinical-cases");
     await page.getByRole("link", { name: "Next page", exact: true }).click();
-    await page.waitForURL(`${origin}/clinical-cases?page=2`);
+    await page.waitForURL(`${origin}/clinical-cases?page=2&answered=all`);
     await page.getByRole("link", { name: "Previous page", exact: true }).click();
-    await page.waitForURL(`${origin}/clinical-cases?page=1`);
+    await page.waitForURL(`${origin}/clinical-cases?page=1&answered=all`);
     for (const width of [320, 390, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `Catalog overflow at ${width}px`);
       for (const selector of ["nav-home-link", "nav-all-cases", "nav-create-case", "nav-analytics", "nav-docs", "footer-github"]) {
-        assert(await page.getByTestId(selector).isVisible(), `${selector} visible at ${width}px`);
+        assert(await page.getByTestId(selector).filter({ visible: true }).isVisible(), `${selector} visible at ${width}px`);
       }
     }
     await page.getByRole("link", { name: draft.title, exact: true }).click();
-    await page.getByTestId("case-title").waitFor();
+    await page.getByTestId("case-title").filter({ visible: true }).filter({ visible: true }).waitFor();
     holdCatalog = true;
     try {
       await page.goto(origin + "/clinical-cases?page=2", { waitUntil: "commit" });
-      const loading = page.getByTestId("catalog-loading");
+      const loading = page.getByTestId("catalog-loading").filter({ visible: true });
       await loading.waitFor();
       assert.equal(await loading.locator("li").count(), 3);
       assert.equal(await loading.getByRole("status").textContent(), "Loading clinical cases...");
@@ -510,11 +560,11 @@ const listen = async (server) => {
       holdCatalog = false;
       releaseCatalog?.();
     }
-    await page.getByTestId("catalog-case").waitFor();
-    assert.equal(await page.getByTestId("catalog-loading").count(), 0);
+    await page.getByTestId("catalog-case").filter({ visible: true }).waitFor();
+    assert.equal(await page.getByTestId("catalog-loading").filter({ visible: true }).count(), 0);
     catalogEmpty = true;
     await page.goto(`${origin}/clinical-cases`);
-    await page.getByTestId("catalog-empty").waitFor();
+    await page.getByTestId("catalog-empty").filter({ visible: true }).waitFor();
     assert(await page.getByText("No cases have been saved yet.").isVisible());
     assert.deepEqual(errors, []);
     healthy = false;
@@ -523,12 +573,44 @@ const listen = async (server) => {
     const failedCatalogRequests = requests;
     healthy = true;
     await page.getByRole("button", { name: "Try again", exact: true }).click();
-    await page.getByTestId("catalog-empty").waitFor();
+    await page.getByTestId("catalog-empty").filter({ visible: true }).waitFor();
     assert(requests > failedCatalogRequests);
     errors.length = 0; // Expected Server Component error from the injected 503.
 
+    await page.goto(`${origin}/account`);
+    await page.getByRole("button", { name: "Sign in / Register" }).click();
+    await page.getByLabel("Username", { exact: true }).fill("browser_learner");
+    await page.getByLabel("Password", { exact: true }).fill("synthetic-password-123");
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await page.getByTestId("account-dashboard").filter({ visible: true }).waitFor();
+    await page.getByRole("heading", { name: "Answer history" }).waitFor();
+    assert(await page.getByText("Synthetic explanation").isVisible());
+    const sessionCookie = (await page.context().cookies()).find(cookie => cookie.name === "clinical_session");
+    assert(sessionCookie?.httpOnly && sessionCookie?.sameSite === "Lax", "Session uses an HttpOnly SameSite cookie.");
+    assert(!(await page.evaluate(() => document.cookie)).includes("browser-private-session"), "Browser scripts cannot read the session.");
+    assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
+    catalogEmpty = false;
+    await page.getByTestId("nav-all-cases").filter({ visible: true }).click();
+    await page.getByLabel("My answers").selectOption("answered");
+    await page.getByRole("button", { name: "Search", exact: true }).click();
+    await page.waitForURL(url => url.searchParams.get("answered") === "answered");
+    await page.getByText("Answered - Latest score: 100 / 100").waitFor();
+    await page.getByRole("link", { name: draft.title, exact: true }).click();
+    await page.getByTestId("attempt-diagnosis").filter({ visible: true }).fill("Cold");
+    await page.getByTestId("attempt-submit").filter({ visible: true }).click();
+    await page.getByTestId("attempt-result").filter({ visible: true }).waitFor();
+    await page.goBack();
+    await page.getByText("Answered - Latest score: 0 / 100").waitFor();
+    await page.getByTestId("nav-account").filter({ visible: true }).click();
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await page.getByRole("button", { name: "Sign in / Register" }).waitFor();
+    assert(!(await page.context().cookies()).some(cookie => cookie.name === "clinical_session"));
+    assert.deepEqual(errors, []);
+
     const report = {
+      account_real_proxy_cookie_login_profile_logout: true,
       status: "passed",
+      consistent_route_section_widths: true,
       header_home_cases_create_and_brand_navigation: true,
       favicon_available: true,
       docs_new_tab_icon_noopener_and_footer_github: true,

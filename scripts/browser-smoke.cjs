@@ -11,7 +11,8 @@ const assert = require('node:assert/strict');
   const errors=[];
   const traceIds=[];
   page.on('response', async response => {
-    if(response.url().startsWith(deployment.backend_url)){
+    const url = new URL(response.url());
+    if(response.url().startsWith(deployment.backend_url) || (url.origin === new URL(deployment.frontend_url).origin && url.pathname.startsWith('/api/backend/'))){
       const id=await response.headerValue('x-trace-id');
       if(id) traceIds.push({path:new URL(response.url()).pathname,trace_id:id,status:response.status()});
     }
@@ -21,6 +22,7 @@ const assert = require('node:assert/strict');
   await page.getByTestId('home-demo-case-primary').click();
   await page.getByTestId('case-title').waitFor();
   assert.equal(await page.getByTestId('case-title').textContent(),'Fever and dry cough');
+  assert.equal(await page.getByTestId('case-demo-badge').textContent(),'Demo');
   await page.goto(deployment.frontend_url+'/clinical-cases/new');
   await page.getByTestId('author-source-text').fill('A synthetic 28-year-old presents with sudden fever, dry cough and fatigue for two days. Final diagnosis: influenza.');
   await page.getByTestId('author-key').fill(key);
@@ -29,23 +31,27 @@ const assert = require('node:assert/strict');
   assert.equal(await page.getByTestId('author-reference-diagnosis').inputValue(),'');
   const extracted=await page.getByTestId('author-draft-vignette').inputValue();
   assert(!/influenza/i.test(extracted));
-  const title='Reviewed cloud case '+Date.now();
+  const title='Sudden fever, dry cough and fatigue';
   await page.getByTestId('author-draft-title').fill(title);
   await page.getByTestId('author-reference-diagnosis').fill('Influenza');
   await page.getByTestId('author-accepted-alternatives').fill('Flu');
   await page.getByTestId('author-review-confirmation').check();
+  await page.getByRole('checkbox',{name:'I understand and want to submit as a guest.'}).check();
   await page.getByTestId('author-save-submit').click();
   await page.waitForURL(/clinical-cases\/[0-9a-f-]{36}$/);
   const caseUrl=page.url();
   await page.getByRole('heading',{name:title}).waitFor();
   for(const [diagnosis,feedback] of [['  FLU  ','Your diagnosis matches an accepted answer.'],['Unrelated diagnosis','Your diagnosis does not match an accepted answer.']]){
     await page.getByTestId('attempt-diagnosis').fill(diagnosis);
+    await page.getByRole('checkbox',{name:'I understand and want to submit as a guest.'}).check();
     await page.getByTestId('attempt-submit').click();
     await page.getByText(feedback,{exact:true}).waitFor();
   }
   await page.reload();
   await page.getByRole('heading',{name:title}).waitFor();
   const id=caseUrl.split('/').at(-1);
+  assert.match(id,/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+  assert.equal(await page.getByTestId('case-demo-badge').count(),0);
   const response=await page.request.get(deployment.backend_url+'/api/v1/clinical-cases/'+id);
   assert.equal(response.status(),200);
   const getTrace=response.headers()['x-trace-id'];

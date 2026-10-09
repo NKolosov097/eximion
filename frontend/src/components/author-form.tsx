@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type SubmitEvent } from "react";
+import { useSession } from "./session-provider";
+import { GuestSubmissionNotice } from "./guest-submission-notice";
 import { useRouter } from "next/navigation";
 import { ApiError, displayError, request } from "@/lib/api";
 import { messages } from "@/lib/messages";
@@ -18,6 +20,9 @@ type AuthorPendingState = "extract" | "save" | null;
 
 export function AuthorForm() {
   const router = useRouter();
+  const { user, loading: sessionLoading } = useSession();
+  const [guestAcknowledged, setGuestAcknowledged] = useState(false);
+  useEffect(() => { setGuestAcknowledged(false); }, [user?.id]);
   const [source, setSource] = useState("");
   const [authorKey, setAuthorKey] = useState("");
   const [draft, setDraft] = useState<ClinicalCaseDraft | null>(null);
@@ -161,7 +166,7 @@ export function AuthorForm() {
   async function save(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaveError("");
-    if (!draft) return;
+    if (!draft || sessionLoading || (!user && !guestAcknowledged)) return;
     const symptomList = lines(symptoms);
     const acceptedAnswers = lines(alternatives);
     const validation = [
@@ -201,6 +206,7 @@ export function AuthorForm() {
       symptoms: symptomList,
       reference_diagnosis: reference,
       accepted_answers: acceptedAnswers,
+      guest_acknowledged: !user && guestAcknowledged,
     };
     try {
       const result = await request<ClinicalCase>("/api/v1/clinical-cases", {
@@ -500,11 +506,13 @@ export function AuthorForm() {
                 {saveError}
               </p>
             )}
+            <GuestSubmissionNotice kind="case" acknowledged={guestAcknowledged} onChange={setGuestAcknowledged} disabled={pending !== null} />
+            <p className="field-hint">Signing in links this case to your profile; the Author key is still required. Owned cases can be edited only before the first answer, and archived later.</p>
             <div className="save-actions">
               <button
                 className="button"
                 type="submit"
-                disabled={!reviewed}
+                disabled={!reviewed || sessionLoading || (!user && !guestAcknowledged)}
                 data-testid="author-save-submit"
               >
                 {pending === "save" ? messages.saving : messages.save}

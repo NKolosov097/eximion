@@ -6,6 +6,7 @@ from app.schemas import ClinicalCaseCreate, ClinicalCaseDraft
 
 
 VALID_CASE = {
+    "guest_acknowledged": True,
     "title": " Fever and cough ",
     "vignette": "A synthetic adult presents with fever and cough.",
     "symptoms": [" Fever ", "Cough"],

@@ -1,37 +1,64 @@
 "use client";
 
-import { useState, type SubmitEvent } from "react";
-import { ApiError, displayError, request } from "@/lib/api";
+import { useEffect, useState, type SubmitEvent } from "react";
+import { useRouter } from "next/navigation";
+import { GuestSubmissionNotice } from "@/components/guest-submission-notice";
+import { useSession } from "@/components/session-provider";
+import { displayError, request } from "@/lib/api";
 import { messages } from "@/lib/messages";
 import type { AttemptCreate, AttemptResult } from "@/lib/types";
-import { textError } from "@/lib/validation";
+import { lines, trimText } from "@/lib/text";
+import { listError, textError } from "@/lib/validation";
 
 interface AttemptFormProps {
   caseId: string;
 }
 
 export function AttemptForm({ caseId }: AttemptFormProps) {
+  const router = useRouter();
+  const { user, loading } = useSession();
+  const [guestAcknowledged, setGuestAcknowledged] = useState(false);
+  const [alternatives, setAlternatives] = useState("");
+  const [reasoning, setReasoning] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
   const [pending, setPending] = useState(false);
-  const [invalid, setInvalid] = useState(false);
+  const [invalid, setInvalid] = useState("");
   const [error, setError] = useState("");
   const [result, setResult] = useState<AttemptResult | null>(null);
 
+  useEffect(() => {
+    setGuestAcknowledged(false);
+    setResult(null);
+  }, [user?.id]);
+
   async function submit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
-    const validation = textError(diagnosis, 1, 200);
-    setInvalid(Boolean(validation));
+    if (pending || loading || (!user && !guestAcknowledged)) return;
+    const alternativeDiagnoses = lines(alternatives);
+    const validation = [
+      ["diagnosis", textError(diagnosis, 1, 200)],
+      ["alternative-diagnoses", alternativeDiagnoses.length > 5
+        ? messages.attemptAlternativesError
+        : listError(alternativeDiagnoses, 0, messages.attemptAlternativesError)],
+      ["reasoning", textError(reasoning, 0, 2000)],
+    ].find(([, message]) => message);
+    setInvalid(validation?.[0] ?? "");
     if (validation) {
-      setError(validation);
+      setError(validation[1]);
       event.currentTarget
-        .querySelector<HTMLInputElement>("#diagnosis")
+        .querySelector<HTMLInputElement | HTMLTextAreaElement>(`#${validation[0]}`)
         ?.focus();
       return;
     }
     setPending(true);
     setError("");
     setResult(null);
-    const body: AttemptCreate = { diagnosis };
+    const body: AttemptCreate = {
+      diagnosis,
+      guest_acknowledged: !user && guestAcknowledged,
+      alternative_diagnoses: alternativeDiagnoses,
+      reasoning: trimText(reasoning),
+    };
     try {
       setResult(
         await request<AttemptResult>(
@@ -39,12 +66,18 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
           { method: "POST", body: JSON.stringify(body) },
         ),
       );
+      router.refresh();
     } catch (error) {
       setError(displayError(error));
-      setInvalid(error instanceof ApiError && error.status === 422);
     } finally {
       setPending(false);
     }
+  }
+
+  function clearFeedback() {
+    setResult(null);
+    setError("");
+    setInvalid("");
   }
 
   return (
@@ -68,26 +101,62 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
             value={diagnosis}
             onChange={(event) => {
               setDiagnosis(event.target.value);
-              setResult(null);
-              setError("");
-              setInvalid(false);
+              clearFeedback();
             }}
             required
             placeholder={messages.diagnosisPlaceholder}
-            disabled={pending}
-            aria-invalid={invalid}
+            disabled={pending || loading}
+            aria-invalid={invalid === "diagnosis"}
             aria-describedby={`diagnosis-hint${error ? " attempt-error" : ""}`}
           />
-          <button
-            className="button"
-            type="submit"
-            disabled={pending}
-            data-testid="attempt-submit"
-          >
-            {pending ? messages.submitting : messages.submit}
-            <span aria-hidden="true"> →</span>
-          </button>
         </div>
+        <div className="attempt-notes">
+          <label htmlFor="alternative-diagnoses">{messages.attemptAlternativesLabel}</label>
+          <p className="field-hint" id="alternative-diagnoses-hint">{messages.attemptAlternativesHint}</p>
+          <textarea
+            id="alternative-diagnoses"
+            data-testid="attempt-alternatives"
+            rows={3}
+            value={alternatives}
+            onChange={(event) => {
+              setAlternatives(event.target.value);
+              clearFeedback();
+            }}
+            disabled={pending || loading}
+            aria-invalid={invalid === "alternative-diagnoses"}
+            aria-describedby={`alternative-diagnoses-hint${error ? " attempt-error" : ""}`}
+          />
+          <label htmlFor="reasoning">{messages.attemptReasoningLabel}</label>
+          <p className="field-hint" id="reasoning-hint">{messages.attemptReasoningHint}</p>
+          <textarea
+            id="reasoning"
+            data-testid="attempt-reasoning"
+            rows={4}
+            value={reasoning}
+            onChange={(event) => {
+              setReasoning(event.target.value);
+              clearFeedback();
+            }}
+            disabled={pending || loading}
+            aria-invalid={invalid === "reasoning"}
+            aria-describedby={`reasoning-hint${error ? " attempt-error" : ""}`}
+          />
+        </div>
+        <GuestSubmissionNotice
+          kind="attempt"
+          acknowledged={guestAcknowledged}
+          onChange={setGuestAcknowledged}
+          disabled={pending}
+        />
+        <button
+          className="button"
+          type="submit"
+          disabled={pending || loading || (!user && !guestAcknowledged)}
+          data-testid="attempt-submit"
+        >
+          {pending ? messages.submitting : messages.submit}
+          <span aria-hidden="true"> →</span>
+        </button>
         {error && (
           <p
             id="attempt-error"
@@ -109,6 +178,31 @@ export function AttemptForm({ caseId }: AttemptFormProps) {
                 {result.is_correct ? messages.correct : messages.incorrect}
               </h3>
               <p data-testid="attempt-feedback">{result.feedback}</p>
+              <div className="attempt-answer-key" data-testid="attempt-answer-key">
+                <h3>{messages.attemptAnswerKey}</h3>
+                <ul>{result.accepted_diagnoses.map((value, index) => <li key={index}>{value}</li>)}</ul>
+              </div>
+              {(lines(alternatives).length > 0 || trimText(reasoning)) && (
+                <div className="attempt-notes-recap" data-testid="attempt-notes-recap">
+                  <h3>{messages.attemptNotesTitle}</h3>
+                  {lines(alternatives).length > 0 && (
+                    <ul>
+                      {lines(alternatives).map((value, index) => {
+                        const matched = result.matched_alternative_diagnoses.includes(value);
+                        return (
+                          <li key={index} className={matched ? "alternative-match" : undefined} data-testid="attempt-alternative-result">
+                            {value}{" "}
+                            <span className="alternative-assessment">
+                              {matched ? messages.attemptAcceptedMatch : messages.attemptNotAssessed}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                  {trimText(reasoning) && <p>{trimText(reasoning)}</p>}
+                </div>
+              )}
               <p className="field-hint">{messages.another}</p>
             </div>
             <div className="score">

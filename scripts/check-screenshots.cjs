@@ -55,7 +55,7 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
   if (update) fs.mkdirSync(baselines, { recursive: true });
   const api = http.createServer((req, res) => {
     const pathname = new URL(req.url, 'http://localhost').pathname;
-    const body = pathname === '/api/v1/clinical-cases'
+    const body = pathname === '/api/v1/auth/me' ? { user: null } : pathname === '/api/v1/clinical-cases'
       ? { items: [clinicalCase], has_more: true } : clinicalCase;
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(body));
@@ -85,10 +85,32 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
     const captured = [];
     for (const [size, viewport] of [['desktop', { width: 1440, height: 1000 }], ['mobile', { width: 390, height: 844 }]]) {
       const page = await browser.newPage({ viewport, deviceScaleFactor: 1, locale: 'en-US', timezoneId: 'UTC', colorScheme: 'light', reducedMotion: 'reduce' });
+      // Streaming routes can retain hidden copies while the active content is revealed.
+      const visible = testId => page.getByTestId(testId).filter({ visible: true });
+      let signedIn = false;
+      const unexpectedRequests = [];
+      await page.route('**/*', route => {
+        if (new URL(route.request().url()).origin !== origin) {
+          unexpectedRequests.push(route.request().url());
+          return route.abort();
+        }
+        return route.continue();
+      });
+      const user = { id: '11111111-1111-4111-8111-111111111111', username: 'case_learner' };
+      await page.route('**/api/backend/auth/me', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ user: signedIn ? user : null }) }));
+      await page.route('**/api/backend/profile?*', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+        user, attempt_count: 2, correct_count: 1, incorrect_count: 1, points: 100, has_more: false, cases_has_more: false,
+        attempts: [
+          { id: '11111111-1111-4111-8111-111111111112', clinical_case_id: id, title: draft.title, archived: false, diagnosis: 'Influenza', alternative_diagnoses: ['Common cold'], reasoning: 'The acute fever and muscle aches support the primary diagnosis.', score: 100, is_correct: true, created_at: '2026-10-08T12:00:00Z' },
+          { id: '11111111-1111-4111-8111-111111111113', clinical_case_id: id, title: draft.title, archived: false, diagnosis: 'Common cold', alternative_diagnoses: ['Flu', 'Asthma'], reasoning: 'I initially focused on the cough.', score: 0, is_correct: false, created_at: '2026-10-07T12:00:00Z' },
+        ],
+        cases: [{ id: '11111111-1111-4111-8111-111111111114', title: 'Sudden fever and fatigue', archived: false, can_edit: true }],
+      }) }));
+      await page.route('**/api/backend/clinical-cases/*/attempts', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ score: 0, max_score: 100, is_correct: false, feedback: 'Your diagnosis does not match an accepted answer.', accepted_diagnoses: ['Influenza', 'Flu'], matched_alternative_diagnoses: ['Flu'] }) }));
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
-      await page.route('**/api/v1/clinical-cases/extract', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ draft, warnings: [] }) }));
-      await page.route('**/api/v1/analytics?*', route => {
+      await page.route('**/api/backend/clinical-cases/extract', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ draft, warnings: [] }) }));
+      await page.route('**/api/backend/analytics?*', route => {
         assert.equal(route.request().headers()['x-author-key'], 'screenshot-author-key');
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
           days: 30, start_at: '2026-09-08T12:00:00Z', end_at: '2026-10-08T12:00:00Z',
@@ -99,24 +121,40 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
         ['home', '/', 'home-create-case'],
         ['catalog', '/clinical-cases', 'catalog-case'],
         ['case', `/clinical-cases/${id}`, 'case-title'],
+        ['case-feedback', `/clinical-cases/${id}`, 'case-title'],
+        ['account', '/account', 'account-dashboard'],
         ['analytics', '/analytics', 'analytics-initial'],
         ['author', '/clinical-cases/new', 'author-source-text'],
       ]) {
+        signedIn = name === "account";
         await page.goto(origin + route);
-        await page.getByTestId(ready).waitFor();
-        if (name === 'analytics') {
-          await page.getByTestId('analytics-key').fill('screenshot-author-key');
-          await page.getByTestId('analytics-load').click();
-          await page.getByTestId('analytics-cards').waitFor();
-        } else if (name === 'author') {
-          await page.getByTestId('author-source-text').fill(draft.vignette);
-          await page.getByTestId('author-extract-submit').click();
-          await page.getByTestId('author-draft-title').waitFor();
-          await page.getByTestId('author-reference-diagnosis').fill('Influenza');
-          await page.getByTestId('author-accepted-alternatives').fill('Flu');
+        await visible(ready).waitFor();
+        if (name === 'account') {
+          await page.getByRole('heading', { name: 'Answer history' }).waitFor();
+          assert.equal(await page.locator('.profile-list').filter({ visible: true }).first().locator('li').count(), 2);
+          assert(await page.getByRole('link', { name: 'Edit', exact: true }).isVisible());
         }
-        for (const selector of ['nav-home-link', 'nav-all-cases', 'nav-create-case', 'nav-analytics', 'nav-docs', 'footer-github'])
-          assert(await page.getByTestId(selector).isVisible(), `Missing ${selector} on ${name}/${size}`);
+        if (name === 'case-feedback') {
+          await visible('attempt-diagnosis').fill('Common cold');
+          await visible('attempt-alternatives').fill('Flu\nAsthma');
+          await visible('attempt-reasoning').fill('Fever and cough suggest a respiratory infection.');
+          await page.getByRole('checkbox', { name: 'I understand and want to submit as a guest.' }).check();
+          await visible('attempt-submit').click();
+          await visible('attempt-result').waitFor();
+        }
+        if (name === 'analytics') {
+          await visible('analytics-key').fill('screenshot-author-key');
+          await visible('analytics-load').click();
+          await visible('analytics-cards').waitFor();
+        } else if (name === 'author') {
+          await visible('author-source-text').fill(draft.vignette);
+          await visible('author-extract-submit').click();
+          await visible('author-draft-title').waitFor();
+          await visible('author-reference-diagnosis').fill('Influenza');
+          await visible('author-accepted-alternatives').fill('Flu');
+        }
+        for (const selector of ['nav-home-link', 'nav-all-cases', 'nav-create-case', 'nav-analytics', 'nav-account', 'nav-docs', 'footer-github'])
+          assert(await visible(selector).isVisible(), `Missing ${selector} on ${name}/${size}`);
         assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, `${name}/${size} overflows`);
         await page.evaluate(async () => { await document.fonts.ready; document.activeElement?.blur(); window.scrollTo(0, 0); });
         const file = `${name}-${size}.png`;
@@ -148,6 +186,7 @@ assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
         captured.push(file);
       }
       assert.deepEqual(errors, []);
+      assert.deepEqual(unexpectedRequests, [], "Screenshot pages must not contact external services.");
       await page.close();
     }
     const report = { status: failures.length ? 'failed' : update ? 'updated' : 'passed', environment, captured, failures };

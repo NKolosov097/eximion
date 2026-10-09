@@ -621,7 +621,6 @@ select:disabled {
   overflow-wrap: anywhere;
 }
 .case-page {
-  max-width: 980px;
   margin: 0 auto;
   padding-bottom: 70px;
 }
@@ -1252,4 +1251,59 @@ textarea:focus-visible {
 }
 @keyframes skeleton-pulse {
   50% { opacity: 0.45; }
+}
+
+.attempt-notes {
+  margin-block: 22px;
+}
+.attempt-notes label {
+  display: block;
+  font-weight: 600;
+}
+.attempt-notes textarea {
+  width: 100%;
+  margin-bottom: 18px;
+}
+.attempt-notes .field-hint {
+  margin-bottom: 8px;
+}
+.attempt-notes-recap {
+  margin-top: 18px;
+  overflow-wrap: anywhere;
+}
+.attempt-notes-recap p {
+  white-space: pre-wrap;
+}
+
+.attempt-answer-key {
+  margin-top: 18px;
+}
+.alternative-match {
+  color: var(--green-dark);
+  font-weight: 600;
+}
+.alternative-assessment {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.auth-dialog { width: min(100% - 2rem, 480px); border: 1px solid #d7dfdb; border-radius: 20px; padding: 2rem; color: #20312b; }
+.auth-dialog::backdrop { background: rgb(16 35 26 / 45%); }
+.auth-dialog input { width: 100%; margin: .35rem 0; }
+.account-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1rem 0; }
+.guest-notice { padding: 1rem; margin: 1rem 0; background: #f6f4eb; border-radius: 12px; }
+.guest-notice .review-check { display: flex; gap: .6rem; align-items: start; margin-top: .75rem; cursor: pointer; }
+.guest-notice input { width: auto; cursor: pointer; }
+.profile-list { display: grid; gap: 1rem; list-style: none; padding: 0; }
+.profile-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+.profile-stats strong { display: block; font-size: 2rem; }
+.owner-editor { display: grid; gap: 1rem; }
+.owner-editor label { display: grid; gap: .4rem; }
+
+.demo-badge {
+  display: inline-block;
+  background: var(--soft);
+  color: var(--green-dark);
+  vertical-align: middle;
 }

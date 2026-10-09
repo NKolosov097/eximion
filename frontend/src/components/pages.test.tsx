@@ -19,6 +19,7 @@ import NotFound from "@/app/not-found";
 import { DEMO_CASE_ID, messages } from "@/lib/messages";
 
 const { currentPath } = vi.hoisted(() => ({ currentPath: { value: "/" } }));
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined }) }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
   usePathname: () => currentPath.value,
@@ -173,7 +174,7 @@ describe("case catalog", () => {
     expect(screen.getByRole("link", { name: messages.clearSearch }).getAttribute("href")).toBe("/clinical-cases");
     expect(screen.getByText(`${messages.age}: ${messages.ageUnknown}`)).toBeTruthy();
     const requestedUrl = new URL(fetch.mock.calls[0][0]);
-    expect(Object.fromEntries(requestedUrl.searchParams)).toEqual({ page: "2", page_size: "20", q: query.trim() });
+    expect(Object.fromEntries(requestedUrl.searchParams)).toEqual({ page: "2", page_size: "20", answered: "all", q: query.trim() });
     const search = screen.getByRole("searchbox", { name: messages.searchLabel });
     expect(search.closest("form")?.getAttribute("action")).toBe("/clinical-cases");
     expect(search.closest("form")?.getAttribute("method")).not.toBe("post");
@@ -192,7 +193,7 @@ describe("case catalog", () => {
     render(await CatalogPage({ searchParams: Promise.resolve({ page: String(page) }) }));
     expect(screen.getByText(page === 1 ? messages.catalogEmpty : messages.catalogPageEmpty)).toBeTruthy();
     expect(screen.queryByRole("link", { name: messages.next })).toBeNull();
-    expect(screen.getByRole("link", { name: page === 1 ? messages.create : messages.firstPage }).getAttribute("href")).toBe(page === 1 ? "/clinical-cases/new" : "/clinical-cases");
+    expect(screen.getByRole("link", { name: page === 1 ? messages.create : messages.firstPage }).getAttribute("href")).toBe(page === 1 ? "/clinical-cases/new" : "/clinical-cases?answered=all");
   });
 
   it.each(["0", "-1", "x", "1000001", ["1", "2"]])("rejects invalid page %s before fetching", async (page) => {

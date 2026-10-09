@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { apiBaseUrl } from "@/lib/api";
+import { useSession } from "./session-provider";
 import { messages } from "@/lib/messages";
 
 export function SiteNav() {
   const pathname = usePathname();
+  const { user } = useSession();
   const active =
     pathname === "/"
       ? "home"
@@ -51,6 +53,7 @@ export function SiteNav() {
       >
         {messages.navAnalytics}
       </Link>
+      <Link href="/account" className="nav-link" data-testid="nav-account" aria-current={pathname === "/account" ? "page" : undefined}>{user ? "Profile" : "Sign in"}</Link>
       <a
         href={`${apiBaseUrl()}/docs`}
         className="nav-link"

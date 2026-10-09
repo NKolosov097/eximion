@@ -34,9 +34,9 @@ Gemini extraction requires workload credentials plus `GOOGLE_CLOUD_PROJECT`, `GO
 1. Open **Create case**, enter the author key and paste synthetic clinical text.
 2. Extract, edit the structured draft, and remove any revealed diagnosis. Automatic omission is not guaranteed.
 3. Supply your own reference diagnosis and allowed variants, confirm review, then save.
-4. Submit a diagnosis on the saved case. Exact normalized reference/variant matches receive 100 points; other answers receive 0.
+4. Submit a primary diagnosis and optional alternatives/reasoning. The primary diagnosis is graded by exact normalized reference/variant matching (100 or 0). Matching alternatives are highlighted; unlisted alternatives are not judged incorrect. The answer key appears after submission.
 
-Demo case: `/clinical-cases/4613eeb7-7064-41da-bb06-62630b3eaebc`. Synthetic reference: Influenza; accepted variant: Flu. The API never sends these answers in public case or attempt responses.
+Demo case: `/clinical-cases/4613eeb7-7064-41da-bb06-62630b3eaebc`. Synthetic reference: Influenza; accepted variant: Flu. Public case and catalog responses hide the answer key. After a valid answer is submitted, the response shows the reference and accepted names for learning.
 
 ## Development checks
 
@@ -88,7 +88,7 @@ docker build --platform linux/amd64 -f scripts/Dockerfile.screenshots -t clinica
 docker run --rm --ipc=host -v "${PWD}/.local/screenshot-results:/app/.local/screenshot-results" clinical-cases-screenshots
 ```
 
-Ten reviewed baselines in `scripts/screenshots/linux-chromium` cover Home, Cases, a case, Analytics and the author form on desktop/mobile. After an intentional UI change, generate candidates with the command below, inspect all changed images, then rerun the comparison (rebuild the image to include the reviewed baselines):
+Fourteen reviewed baselines in `scripts/screenshots/linux-chromium` cover Home, Cases, a case, answer feedback, Profile, Analytics and the author form on desktop/mobile. After an intentional UI change, generate candidates with the command below, inspect all changed images, then rerun the comparison (rebuild the image to include the reviewed baselines):
 
 ```powershell
 docker run --rm --ipc=host -v "${PWD}/scripts/screenshots/linux-chromium:/app/scripts/screenshots/linux-chromium" clinical-cases-screenshots node scripts/check-screenshots.cjs --update-baselines
@@ -103,3 +103,11 @@ Unsaved author content is kept only in memory. Links and reload/close warn befor
 All cases supports case-insensitive literal search in case titles and descriptions. Submit Search (or Enter), use Clear search to reset, and share the resulting q URL; pagination keeps the filter. Hidden grading answers are never searched.
 
 Open **Analytics** in the header, enter the Author key and select the last 7, 30 or 90 days. The private dashboard shows cases created, attempts submitted and the percentage of correct answers from existing records. It counts submissions rather than unique people and adds no visitor tracking. See [analytics access and calculations](docs/observability.md#private-application-analytics).
+
+## Accounts and personal history
+
+Sign in with a username and password to attach new cases and answers to your profile. Email and password recovery are not provided; retain your credentials. The profile shows correct/incorrect attempts, total points, answer history with case links, and your authored cases. Repeated attempts count separately. Signed-in catalog browsing shows the latest score and All / Answered / Unanswered filters.
+
+Guests must confirm that a saved case or answer will remain unowned and cannot be attached to an account later. The Sign in action beside that checkbox opens a dialog over the current form, preserving its filled fields in memory; it does not submit the form automatically. No draft, password or session token is stored in browser storage. Existing records remain global.
+
+Owners can edit a case before its first answer. Afterwards, archive it to remove it from the catalog while preserving read-only history links. Signing in does not replace the Author key needed for extraction, creation or global Analytics.

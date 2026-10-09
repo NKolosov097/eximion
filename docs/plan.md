@@ -54,3 +54,21 @@ Tests after implementation, without mandatory test-first. Backend integration us
 - [x] Implement protected aggregate endpoint/schema with UTC periods; add database tests and regenerate contract.
 - [x] Add author-key dashboard, three metrics, periods/loading/errors and header navigation; add focused UI/E2E coverage.
 - [x] Review implementation and visual baselines, pass CI, deploy both services and verify authenticated live reads.
+
+
+## Consistent route width
+- [x] Remove the case-page width override so catalog/detail use the existing main-shell width, matching home/authoring/analytics.
+- [x] Add browser assertions for section left/right edges across routes at desktop widths and mobile overflow.
+- [x] Run coordinated production build/browser verification and update reviewed visual baselines.
+
+
+## Richer learner answers
+- [x] Add bounded optional alternatives/reasoning to attempt persistence, contract and account history (account implementation).
+- [x] Extend the answer form with optional notes, field-specific validation, explicit guest consent and modal sign-in; show the answer key and accepted-only alternative matches without changing the primary score. Focused form tests pass (25).
+- [x] Verify primary-only grading, optional field boundaries, persistence/history privacy, and form accessibility/request/failure behavior.
+
+## Accounts and case ownership
+- [x] Specify username/password sessions, guest consent, private history, ownership and archival in accounts-spec.md and accounts-plan.md.
+- [x] Implement backend migration, authentication and ownership; add same-origin session proxy, modal sign-in and profile.
+- [x] Verify PostgreSQL migration preservation, ownership isolation, concurrent answer/edit locking, generic login errors and form preservation.
+- [ ] Review all fourteen screenshots, pass release CI, migrate/deploy and verify real account flows.
