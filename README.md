@@ -88,6 +88,8 @@ docker build --platform linux/amd64 -f scripts/Dockerfile.screenshots -t clinica
 docker run --rm --ipc=host -v "${PWD}/.local/screenshot-results:/app/.local/screenshot-results" clinical-cases-screenshots
 ```
 
+Screenshot comparison tolerates one RGB level of antialiasing rounding between Linux hosts; dimensions and alpha remain exact.
+
 Fourteen reviewed baselines in `scripts/screenshots/linux-chromium` cover Home, Cases, a case, answer feedback, Profile, Analytics and the author form on desktop/mobile. After an intentional UI change, generate candidates with the command below, inspect all changed images, then rerun the comparison (rebuild the image to include the reviewed baselines):
 
 ```powershell

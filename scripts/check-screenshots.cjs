@@ -38,16 +38,24 @@ function compare(actual, expected) {
   const diff = new PNG({ width: actual.width, height: actual.height });
   let changed = 0;
   for (let offset = 0; offset < actual.data.length; offset += 4) {
-    const same = actual.data.subarray(offset, offset + 4).equals(expected.data.subarray(offset, offset + 4));
+    // Linux hosts can round antialiased borders by one RGB level; keep alpha exact.
+    const same = actual.data[offset + 3] === expected.data[offset + 3]
+      && [0, 1, 2].every(channel => Math.abs(actual.data[offset + channel] - expected.data[offset + channel]) <= 1);
     if (!same) changed++;
     diff.data.set(same ? [255, 255, 255, 255] : [255, 0, 0, 255], offset);
   }
   return changed ? { message: `${changed} pixels changed`, diff: PNG.sync.write(diff) } : null;
 }
 // Verify the comparator detects pixels AND dimensions rather than PNG encoding changes.
-const sample = { width: 1, height: 1, data: Buffer.from([0, 0, 0, 255]) };
+const sample = { width: 1, height: 1, data: Buffer.from([100, 100, 100, 255]) };
 assert.equal(compare(sample, { ...sample, data: Buffer.from(sample.data) }), null);
-assert(compare(sample, { ...sample, data: Buffer.from([1, 0, 0, 255]) }).diff);
+assert.equal(compare(sample, { ...sample, data: Buffer.from([99, 101, 100, 255]) }), null);
+for (const channel of [0, 1, 2]) {
+  const data = Buffer.from(sample.data);
+  data[channel] += 2;
+  assert(compare(sample, { ...sample, data }).diff);
+}
+assert(compare(sample, { ...sample, data: Buffer.from([100, 100, 100, 254]) }).diff);
 assert(compare(sample, { ...sample, width: 2 }).message.includes('Dimensions'));
 
 (async () => {
