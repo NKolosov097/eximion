@@ -205,18 +205,18 @@ const listen = async (server) => {
     await page.waitForURL((url) => url.searchParams.get("page") === "2");
     const liveSearch = page.getByRole("searchbox", { name: "Search titles and descriptions" });
     assert.equal(await page.getByRole("button", { name: "Search", exact: true }).count(), 0, "Search is automatic and has no submit button.");
-    const searchFinished = (query) => page.waitForEvent("requestfinished", {
-      predicate: request => { const url = new URL(request.url()); return url.pathname === "/clinical-cases" && url.searchParams.get("q") === query; },
-    });
-    let settledSearch = searchFinished("dry");
+    // Next may keep an RSC response streaming after the visible results commit.
+    const waitForSearchResults = (query) => page.waitForFunction(expectedQuery =>
+      [...document.querySelectorAll("a")].some(link =>
+        link.textContent.trim() === "Next page" && link.getClientRects().length > 0 &&
+        new URL(link.href).searchParams.get("q") === expectedQuery), query);
     await liveSearch.fill("dry");
     await page.waitForURL(url => url.pathname === "/clinical-cases" && url.searchParams.get("q") === "dry");
-    await settledSearch;
+    await waitForSearchResults("dry");
     assert(await liveSearch.evaluate(element => document.activeElement === element && element.selectionStart === 3 && element.selectionEnd === 3), "Search keeps focus and caret after a debounced response.");
-    settledSearch = searchFinished("dry cough");
     await liveSearch.pressSequentially(" cough");
     await page.waitForURL(url => url.pathname === "/clinical-cases" && url.searchParams.get("q") === "dry cough");
-    await settledSearch;
+    await waitForSearchResults("dry cough");
     assert.equal(await liveSearch.inputValue(), "dry cough", "Typing can continue after the previous search settles.");
     assert(await liveSearch.evaluate(element => document.activeElement === element && element.selectionStart === 9 && element.selectionEnd === 9), "A second debounced response also preserves caret and focus.");
     assert.deepEqual(catalogRequests.at(-1), { page: "1", q: "dry cough", answered: "all" }, "Search starts on page one and reaches the API.");
