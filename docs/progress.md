@@ -276,3 +276,9 @@ Live verification at 2026-10-09T07:42:59.238Z passed: owner opens the case from 
 Owner actions are icon buttons aligned to the right of case titles in detail and profile views. Hide/show is reversible and preserves versions and history. Extraction and creation require a signed-in account plus the existing Author key; guests can still answer. Signing in preserves author fields without automatically submitting them.
 
 Validation: 97 backend tests plus two smoke tests, 78 frontend tests, mypy, TypeScript, production build, full Linux browser harness and sixteen reviewed screenshot comparisons passed. Real local browser/API checks verified 44px owner controls at desktop/mobile widths, guest authoring denial, guest answers, edit-after-answer history, stale revision rejection, cross-user denial and hide/restore. Synthetic cases were hidden after checks. No Gemini request was made.
+
+## Owner icons and signed-in authoring - deployed verification
+
+Source e6bfec7 passed all eight jobs in CI run 37902665802. Backend build 4bd33994-246c-4c36-b00d-05a0b3fc857d and frontend build b7de7570-4eda-4df6-a67d-01f44b4a2053 succeeded. Revisions eximion-backend-00012-z57 and eximion-frontend-00015-spb serve all traffic. No new migration was needed.
+
+Live verification at 2026-10-09T08:07:29.523Z passed: owner icons aligned right of titles at desktop/mobile widths, editing after answers with old scores retained, stale answer rejection, cross-user denial, hide/restore preserving history, guest create/extract denial even with a valid Author key, and successful guest answers after restoring. Two synthetic accounts and one case were created; case ac8824e2-a210-4d29-a0c1-1d6b84622c57 was hidden afterwards. Gemini was not called.
